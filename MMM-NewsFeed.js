@@ -40,7 +40,7 @@ Module.register("MMM-NewsFeed", {
         prohibitedWords: [],
         scrollLength: 500,
         logFeedWarnings: false,
-        descriptionAsArticle: false
+        contentAsArticle: false
     },
 
     // Define required scripts.
@@ -250,7 +250,7 @@ Module.register("MMM-NewsFeed", {
             }
 
             if (this.config.showFullArticle) {
-                if (!this.config.descriptionAsArticle) {
+                if (!this.config.contentAsArticle) {
                     var fullArticle = document.createElement("iframe");
                     fullArticle.className = "";
                     fullArticle.style.width = "100vw";
@@ -264,10 +264,13 @@ Module.register("MMM-NewsFeed", {
                     fullArticle.style.zIndex = 1;
                 } else {
                     var fullArticle = document.createElement("div");
-                    var content = this.nl2br(this.newsItems[this.activeItem].description.trim());
-                    content = content.replace(/\./g, ". ");
-                    content = content.replace(/\s\s+/g, " ");
-                    fullArticle.innerHTML = content;
+                    var rawContent = this.newsItems[this.activeItem].content;
+                    console.log(this.getActiveItemURL());
+                    // console.log(rawContent);
+                    // var content = this.nl2br(rawContent);
+                    // content = content.replace(/\./g, ". ");
+                    // content = content.replace(/\s\s+/g, " ");
+                    fullArticle.innerHTML = rawContent;
                     fullArticle.className =
                         "article-content bright medium light";
                     fullArticle.style.width = "100%";

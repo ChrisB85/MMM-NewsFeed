@@ -4,3 +4,7 @@
     text-align: justify;
     background-color: black;
 }
+
+.module.MMM-NewsFeed .article-content img {
+    max-width: 100%;
+}

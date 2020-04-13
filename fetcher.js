@@ -46,6 +46,7 @@ var Fetcher = function(url, reloadInterval, encoding, logFeedWarnings) {
 
 			var title = item.title;
 			var description = item.description || item.summary || item.content || "";
+			var content = description;
 			var pubdate = item.pubdate || item.published || item.updated || item["dc:date"];
 			var url = item.url || item.link || "";
 
@@ -57,6 +58,7 @@ var Fetcher = function(url, reloadInterval, encoding, logFeedWarnings) {
 				items.push({
 					title: title,
 					description: description,
+					content: content,
 					pubdate: pubdate,
 					url: url,
 				});
