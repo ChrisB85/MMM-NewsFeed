@@ -264,8 +264,9 @@ Module.register("MMM-NewsFeed", {
                     fullArticle.style.zIndex = 1;
                 } else {
                     var fullArticle = document.createElement("div");
-                    var content = this.nl2br(this.newsItems[this.activeItem].description);
-                    content = content.replace(/\s\s+/g, "    ");
+                    var content = this.nl2br(this.newsItems[this.activeItem].description.trim());
+                    content = content.replace(/\./g, ". ");
+                    content = content.replace(/\s\s+/g, " ");
                     fullArticle.innerHTML = content;
                     fullArticle.className =
                         "article-content bright medium light";
