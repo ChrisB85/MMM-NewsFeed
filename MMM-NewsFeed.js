@@ -40,6 +40,7 @@ Module.register("MMM-NewsFeed", {
         prohibitedWords: [],
         scrollLength: 500,
         logFeedWarnings: false,
+        descriptionAsArticle: false
     },
 
     // Define required scripts.
@@ -249,17 +250,33 @@ Module.register("MMM-NewsFeed", {
             }
 
             if (this.config.showFullArticle) {
-                var fullArticle = document.createElement("iframe");
-                fullArticle.className = "";
-                fullArticle.style.width = "100vw";
-                // very large height value to allow scrolling
-                fullArticle.height = "3000";
-                fullArticle.style.height = "3000";
-                fullArticle.style.top = "0";
-                fullArticle.style.left = "0";
-                fullArticle.style.border = "none";
-                fullArticle.src = this.getActiveItemURL();
-                fullArticle.style.zIndex = 1;
+                if (!this.config.descriptionAsArticle) {
+                    var fullArticle = document.createElement("iframe");
+                    fullArticle.className = "";
+                    fullArticle.style.width = "100vw";
+                    // very large height value to allow scrolling
+                    fullArticle.height = "3000";
+                    fullArticle.style.height = "3000";
+                    fullArticle.style.top = "0";
+                    fullArticle.style.left = "0";
+                    fullArticle.style.border = "none";
+                    fullArticle.src = this.getActiveItemURL();
+                    fullArticle.style.zIndex = 1;
+                } else {
+                    var fullArticle = document.createElement("div");
+                    var content = this.newsItems[this.activeItem].description;
+                    content = content.replace(/\s\s+/g, "    ");
+                    fullArticle.innerHTML = this.nl2br(content);
+                    fullArticle.className =
+                        "article-content bright medium light";
+                    fullArticle.style.width = "100%";
+                    // very large height value to allow scrolling
+                    fullArticle.style.height = "3000";
+                    fullArticle.style.top = "0";
+                    fullArticle.style.left = "0";
+                    fullArticle.style.border = "none";
+                    fullArticle.style.zIndex = 1;
+                }
                 wrapper.appendChild(fullArticle);
             }
 
@@ -513,6 +530,7 @@ Module.register("MMM-NewsFeed", {
                 );
             }
         } else if (notification === "ARTICLE_LESS_DETAILS") {
+            console.log("ok");
             this.resetDescrOrFullArticleAndTimer();
             Log.info(this.name + " - showing only article titles again");
             this.updateDom(100);
@@ -553,5 +571,22 @@ Module.register("MMM-NewsFeed", {
                 : "full article"
         );
         this.updateDom(100);
+    },
+
+    // https://stackoverflow.com/a/7467863
+    nl2br(str, is_xhtml) {
+        if (typeof str === "undefined" || str === null) {
+            return "";
+        }
+        var breakTag =
+            is_xhtml || typeof is_xhtml === "undefined" ? "<br />" : "<br>";
+        return (str + "").replace(
+            /([^>\r\n]?)(\r\n|\n\r|\r|\n)/g,
+            "$1" + breakTag + "$2"
+        );
+    },
+
+    getStyles: function () {
+        return [this.file("style.css")];
     },
 });
