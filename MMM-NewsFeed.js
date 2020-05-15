@@ -534,7 +534,6 @@ Module.register("MMM-NewsFeed", {
                 );
             }
         } else if (notification === "ARTICLE_LESS_DETAILS") {
-            console.log("ok");
             this.resetDescrOrFullArticleAndTimer();
             Log.info(this.name + " - showing only article titles again");
             this.updateDom(100);
