@@ -51,10 +51,13 @@ Module.register("MMM-NewsFeed", {
 
     // Define required translations.
     getTranslations: function () {
-        // The translations for the default modules are defined in the core translation files.
-        // Therefor we can just return false. Otherwise we should have returned a dictionary.
-        // If you're trying to build your own module including translations, check out the documentation.
-        return false;
+        return {
+            en: "translations/en.json",
+            de: "translations/de.json",
+            es: "translations/es.json",
+            fr: "translations/fr.json",
+            pl: "translations/pl.json"
+        };
     },
 
     // Define start sequence.
@@ -300,10 +303,13 @@ Module.register("MMM-NewsFeed", {
                 }
                 content.appendChild(fullArticle);
                 
-                // Trigger animation after DOM update
+                // Trigger smooth reveal animation after a short delay
+                var self = this;
                 setTimeout(function() {
                     fullArticle.classList.add("show");
-                }, 50);
+                    // Hide loading overlay when content is ready
+                    self.hideLoadingOverlay();
+                }, 200);
             }
 
             wrapper.appendChild(content);
@@ -579,6 +585,9 @@ Module.register("MMM-NewsFeed", {
     resetDescrOrFullArticleAndTimer: function () {
         var self = this;
         
+        // Hide loading overlay if it's showing
+        this.hideLoadingOverlay();
+        
         // If we're currently showing full article, animate the close
         if (this.config.showFullArticle) {
             // Add hide class to full article elements
@@ -814,6 +823,8 @@ Module.register("MMM-NewsFeed", {
                         this.config.scrollLength
                 );
             } else {
+                // Pause auto scroll when opening full article
+                this.pauseAutoScroll();
                 this.showFullArticle();
             }
         } else if (notification === "ARTICLE_SCROLL_UP") {
@@ -856,57 +867,114 @@ Module.register("MMM-NewsFeed", {
     showFullArticle: function () {
         var self = this;
         
-        // If we're about to show full article, fade out current content first
+        // If animation is in progress, wait for it to complete
+        if (this.animationDirection) {
+            Log.info(this.name + " - Article change animation in progress, delaying full article opening");
+            setTimeout(function() {
+                self.showFullArticle();
+            }, 600); // Wait for animation to complete (200ms slide out + 400ms slide in)
+            return;
+        }
+        
+        // Check if we have news items and current item is valid
+        if (this.newsItems.length === 0 || !this.newsItems[this.activeItem]) {
+            Log.info(this.name + " - No news items available or invalid active item, cannot show full article");
+            return;
+        }
+        
+        // If we're about to show full article, show loading overlay immediately
         if (!this.config.showFullArticle) {
-            // Add fade-out class to current elements
-            var content = document.querySelector('.newsfeed-content');
-            if (content) {
-                var title = content.querySelector('.newsfeed-title');
-                var desc = content.querySelector('.newsfeed-desc');
-                var source = content.querySelector('.newsfeed-source');
-                
-                if (title) title.classList.add('fade-out');
-                if (desc) desc.classList.add('fade-out');
-                if (source) source.classList.add('fade-out');
+            // Show loading overlay immediately
+            self.showLoadingOverlay();
+            
+            // Set full article state immediately
+            self.isShowingDescription = !self.isShowingDescription;
+            self.config.showFullArticle = !self.isShowingDescription;
+            
+            // make bottom bar align to top to allow scrolling
+            if (self.config.showFullArticle === true) {
+                document.getElementsByClassName(
+                    "region bottom bar"
+                )[0].style.bottom = "inherit";
+                document.getElementsByClassName("region bottom bar")[0].style.top =
+                    "-90px";
+            }
+            // Pause auto scroll when showing full article
+            self.fullArticlePaused = true;
+            if (self.timer) {
+                clearInterval(self.timer);
+                self.timer = null;
             }
             
-            // Wait for fade out, then show full article
-            setTimeout(function() {
-                self.isShowingDescription = !self.isShowingDescription;
-                self.config.showFullArticle = !self.isShowingDescription;
-                
-                // make bottom bar align to top to allow scrolling
-                if (self.config.showFullArticle === true) {
-                    document.getElementsByClassName(
-                        "region bottom bar"
-                    )[0].style.bottom = "inherit";
-                    document.getElementsByClassName("region bottom bar")[0].style.top =
-                        "-90px";
-                }
-                // Pause auto scroll when showing full article
-                self.fullArticlePaused = true;
-                if (self.timer) {
-                    clearInterval(self.timer);
-                    self.timer = null;
-                }
-                
-                // Start timeout for full article
-                if (self.config.showFullArticle) {
-                    self.startArticleTimeout();
-                }
-                
-                Log.info(
-                    self.name + " - showing " + (self.isShowingDescription
-                        ? "article description"
-                        : "full article") + " - auto scroll paused"
-                );
-                self.updateDom(0);
-            }, 500);
+            // Start timeout for full article
+            if (self.config.showFullArticle) {
+                self.startArticleTimeout();
+            }
+            
+            Log.info(
+                self.name + " - showing " + (self.isShowingDescription
+                    ? "article description"
+                    : "full article") + " - auto scroll paused"
+            );
+            
+            // Update DOM to create the full article content
+            self.updateDom(0);
         } else {
             // Just toggle normally if already showing full article
             this.isShowingDescription = !this.isShowingDescription;
             this.config.showFullArticle = !this.isShowingDescription;
             this.updateDom(0);
+        }
+    },
+
+    showLoadingOverlay: function () {
+        var self = this;
+        
+        // Create loading overlay if it doesn't exist
+        var overlay = document.getElementById('newsfeed-loading-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'newsfeed-loading-overlay';
+            overlay.className = 'newsfeed-loading-overlay';
+            
+            // Create loading content
+            var loadingContent = document.createElement('div');
+            loadingContent.style.display = 'flex';
+            loadingContent.style.flexDirection = 'column';
+            loadingContent.style.alignItems = 'center';
+            
+            // Create spinner
+            var spinner = document.createElement('div');
+            spinner.className = 'newsfeed-loading-spinner';
+            
+            // Create loading text
+            var loadingText = document.createElement('div');
+            loadingText.className = 'newsfeed-loading-text';
+            loadingText.textContent = self.translate('LOADING_ARTICLE');
+            
+            loadingContent.appendChild(spinner);
+            loadingContent.appendChild(loadingText);
+            overlay.appendChild(loadingContent);
+            
+            document.body.appendChild(overlay);
+        }
+        
+        // Show overlay with animation
+        overlay.classList.add('show');
+        Log.info(this.name + " - Loading overlay shown");
+    },
+
+    hideLoadingOverlay: function () {
+        var overlay = document.getElementById('newsfeed-loading-overlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+            // Remove overlay after animation completes
+            setTimeout(function() {
+                if (overlay && overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            }, 500);
+            Log.info(this.name + " - Loading overlay hidden");
         }
     },
 
