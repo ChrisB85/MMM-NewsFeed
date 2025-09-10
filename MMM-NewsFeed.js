@@ -757,16 +757,17 @@ Module.register("MMM-NewsFeed", {
             return;
         }
         
-        // Update active item
+        // Calculate new active item
+        var newActiveItem;
         if (direction === "right") {
-            this.activeItem++;
-            if (this.activeItem >= this.newsItems.length) {
-                this.activeItem = 0;
+            newActiveItem = this.activeItem + 1;
+            if (newActiveItem >= this.newsItems.length) {
+                newActiveItem = 0;
             }
         } else {
-            this.activeItem--;
-            if (this.activeItem < 0) {
-                this.activeItem = this.newsItems.length - 1;
+            newActiveItem = this.activeItem - 1;
+            if (newActiveItem < 0) {
+                newActiveItem = this.newsItems.length - 1;
             }
         }
         
@@ -784,29 +785,137 @@ Module.register("MMM-NewsFeed", {
                 " - going from article #" +
                 before +
                 " to #" +
-                this.activeItem +
+                newActiveItem +
                 " (of " +
                 this.newsItems.length +
                 ")"
         );
         
-        // Use simple but effective animation
-        this.animationDirection = "scroll-out-" + direction;
-        this.updateDom(0);
+        // Create carousel with 3 articles: previous, current, next
+        var prevItem = this.activeItem - 1;
+        if (prevItem < 0) prevItem = this.newsItems.length - 1;
         
-        // After slide out, show new content sliding in
-        setTimeout(function() {
-            self.animationDirection = "scroll-in-" + direction;
-            self.updateDom(0);
+        var nextItem = this.activeItem + 1;
+        if (nextItem >= this.newsItems.length) nextItem = 0;
+        
+        // Set animation direction
+        this.animationDirection = "carousel-" + direction;
+        
+        // Create carousel container
+        var container = document.querySelector('.newsfeed-container');
+        if (container) {
+            // Clear existing content
+            container.innerHTML = '';
             
-            // Reset animation direction after animation completes
+            // Create carousel wrapper
+            var carousel = document.createElement('div');
+            carousel.className = 'newsfeed-carousel';
+            carousel.style.position = 'relative';
+            carousel.style.width = '300%';
+            carousel.style.height = '100%';
+            carousel.style.display = 'flex';
+            carousel.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            
+            // Create three article containers
+            var articles = [
+                { item: prevItem, position: 'left' },
+                { item: this.activeItem, position: 'center' },
+                { item: nextItem, position: 'right' }
+            ];
+            
+            articles.forEach(function(article, index) {
+                var articleContainer = document.createElement('div');
+                articleContainer.className = 'carousel-article carousel-' + article.position;
+                articleContainer.style.width = '33.333%';
+                articleContainer.style.height = '100%';
+                articleContainer.style.position = 'relative';
+                
+                // Create content for this article
+                var content = self.createContentElement(article.item);
+                content.className = 'newsfeed-content';
+                articleContainer.appendChild(content);
+                
+                carousel.appendChild(articleContainer);
+            });
+            
+            container.appendChild(carousel);
+            
+            // Set initial position (center article visible)
+            carousel.style.transform = 'translateX(-33.333%)';
+            
+            // Start animation
             setTimeout(function() {
-                self.animationDirection = null;
-                // Don't resume auto scroll immediately - let the 10 second timeout handle it
-            }, 400);
-        }, 200);
+                if (direction === "right") {
+                    // Move left to show next article
+                    carousel.style.transform = 'translateX(-66.666%)';
+                } else {
+                    // Move right to show previous article
+                    carousel.style.transform = 'translateX(0%)';
+                }
+                
+                // After animation, update activeItem and clean up
+                setTimeout(function() {
+                    self.activeItem = newActiveItem;
+                    self.animationDirection = null;
+                    
+                    // Remove carousel and show normal content
+                    container.innerHTML = '';
+                    self.updateDom(0);
+                }, 400);
+            }, 50);
+        }
     },
 
+    createContentElement: function (itemIndex) {
+        var content = document.createElement("div");
+        content.className = "newsfeed-content";
+        
+        if (this.newsItems.length > 0 && this.newsItems[itemIndex]) {
+            var item = this.newsItems[itemIndex];
+            
+            // Add source and timestamp
+            if (this.config.showSourceTitle || this.config.showPublishDate) {
+                var sourceAndTimestamp = document.createElement("div");
+                sourceAndTimestamp.className = "newsfeed-source light small dimmed";
+
+                if (this.config.showSourceTitle && item.sourceTitle !== "") {
+                    sourceAndTimestamp.innerHTML = item.sourceTitle;
+                }
+                if (this.config.showSourceTitle && item.sourceTitle !== "" && this.config.showPublishDate) {
+                    sourceAndTimestamp.innerHTML += ", ";
+                }
+                if (this.config.showPublishDate) {
+                    sourceAndTimestamp.innerHTML += moment(new Date(item.pubdate)).fromNow();
+                }
+                if ((this.config.showSourceTitle && item.sourceTitle !== "") || this.config.showPublishDate) {
+                    sourceAndTimestamp.innerHTML += ":";
+                }
+
+                content.appendChild(sourceAndTimestamp);
+            }
+
+            // Add title
+            var title = document.createElement("div");
+            title.className = "newsfeed-title bright medium light" + (!this.config.wrapTitle ? " no-wrap" : "");
+            title.innerHTML = item.title;
+            content.appendChild(title);
+
+            // Add description if showing
+            if (this.isShowingDescription) {
+                var description = document.createElement("div");
+                description.className = "newsfeed-desc small light" + (!this.config.wrapDescription ? " no-wrap" : "");
+                var txtDesc = item.description;
+                description.innerHTML = this.config.truncDescription
+                    ? txtDesc.length > this.config.lengthDescription
+                        ? txtDesc.substring(0, this.config.lengthDescription) + "..."
+                        : txtDesc
+                    : txtDesc;
+                content.appendChild(description);
+            }
+        }
+        
+        return content;
+    },
 
     notificationReceived: function (notification, payload, sender) {
         if (notification === "ARTICLE_NEXT") {

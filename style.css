@@ -108,6 +108,48 @@
     animation: scrollInFromRight 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+/* Simultaneous scroll animation - old content slides out while new slides in */
+.module.MMM-NewsFeed .newsfeed-content.scroll-left {
+    position: relative;
+    overflow: hidden;
+}
+
+.module.MMM-NewsFeed .newsfeed-content.scroll-right {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Animation for sliding content - both move in same direction */
+.module.MMM-NewsFeed .newsfeed-content.scroll-left .newsfeed-title,
+.module.MMM-NewsFeed .newsfeed-content.scroll-left .newsfeed-desc,
+.module.MMM-NewsFeed .newsfeed-content.scroll-left .newsfeed-source {
+    animation: slideInFromRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.module.MMM-NewsFeed .newsfeed-content.scroll-right .newsfeed-title,
+.module.MMM-NewsFeed .newsfeed-content.scroll-right .newsfeed-desc,
+.module.MMM-NewsFeed .newsfeed-content.scroll-right .newsfeed-source {
+    animation: slideInFromLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Carousel animation styles */
+.module.MMM-NewsFeed .newsfeed-carousel {
+    position: relative;
+    width: 300%;
+    height: 100%;
+    display: flex;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.module.MMM-NewsFeed .carousel-article {
+    width: 33.333%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Carousel articles are positioned by JavaScript transform */
+
 
 @keyframes slideInFromLeft {
     0% {
@@ -150,6 +192,28 @@
     100% {
         opacity: 1;
         transform: translateX(0) translateY(0);
+    }
+}
+
+@keyframes slideOutLeft {
+    0% {
+        opacity: 1;
+        transform: translateX(0) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-100%) translateY(0);
+    }
+}
+
+@keyframes slideOutRight {
+    0% {
+        opacity: 1;
+        transform: translateX(0) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(100%) translateY(0);
     }
 }
 
