@@ -40,7 +40,8 @@ Module.register("MMM-NewsFeed", {
         prohibitedWords: [],
         scrollLength: 500,
         logFeedWarnings: false,
-        contentAsArticle: false
+        contentAsArticle: false,
+        fullArticleTimeout: 60 * 1000 // 1 minute timeout for full article
     },
 
     // Define required scripts.
@@ -67,10 +68,19 @@ Module.register("MMM-NewsFeed", {
         this.loaded = false;
         this.activeItem = 0;
         this.scrollPosition = 0;
+        this.animationDirection = null;
+        this.gestureInProgress = false;
+        this.gestureTimeout = null;
+        this.timer = null;
+        this.fullArticlePaused = false;
+        this.articleTimeout = null;
 
         this.registerFeeds();
 
         this.isShowingDescription = this.config.showDescription;
+        
+        // Add keyboard support for testing
+        this.addKeyboardSupport();
     },
 
     // Override socket notification handler.
@@ -89,6 +99,7 @@ Module.register("MMM-NewsFeed", {
     // Override dom generator.
     getDom: function () {
         var wrapper = document.createElement("div");
+        wrapper.className = "newsfeed-container";
 
         if (this.config.feedUrl) {
             wrapper.className = "small bright";
@@ -100,7 +111,13 @@ Module.register("MMM-NewsFeed", {
             this.activeItem = 0;
         }
 
+
         if (this.newsItems.length > 0) {
+            var content = document.createElement("div");
+            content.className = "newsfeed-content";
+            if (this.animationDirection) {
+                content.className += " " + this.animationDirection;
+            }
             // this.config.showFullArticle is a run-time configuration, triggered by optional notifications
             if (
                 !this.config.showFullArticle &&
@@ -138,7 +155,7 @@ Module.register("MMM-NewsFeed", {
                     sourceAndTimestamp.innerHTML += ":";
                 }
 
-                wrapper.appendChild(sourceAndTimestamp);
+                content.appendChild(sourceAndTimestamp);
             }
 
             //Remove selected tags from the beginning of rss feed items (title or description)
@@ -231,7 +248,7 @@ Module.register("MMM-NewsFeed", {
                     "newsfeed-title bright medium light" +
                     (!this.config.wrapTitle ? " no-wrap" : "");
                 title.innerHTML = this.newsItems[this.activeItem].title;
-                wrapper.appendChild(title);
+                content.appendChild(title);
             }
 
             if (this.isShowingDescription) {
@@ -246,13 +263,13 @@ Module.register("MMM-NewsFeed", {
                           "..."
                         : txtDesc
                     : txtDesc;
-                wrapper.appendChild(description);
+                content.appendChild(description);
             }
 
             if (this.config.showFullArticle) {
                 if (!this.config.contentAsArticle) {
                     var fullArticle = document.createElement("iframe");
-                    fullArticle.className = "";
+                    fullArticle.className = "full-article-iframe";
                     fullArticle.style.width = "100vw";
                     // very large height value to allow scrolling
                     fullArticle.height = "3000";
@@ -281,8 +298,15 @@ Module.register("MMM-NewsFeed", {
                     fullArticle.style.border = "none";
                     fullArticle.style.zIndex = 1;
                 }
-                wrapper.appendChild(fullArticle);
+                content.appendChild(fullArticle);
+                
+                // Trigger animation after DOM update
+                setTimeout(function() {
+                    fullArticle.classList.add("show");
+                }, 50);
             }
+
+            wrapper.appendChild(content);
 
             if (this.config.hideLoading) {
                 this.show();
@@ -426,6 +450,12 @@ Module.register("MMM-NewsFeed", {
     scheduleUpdateInterval: function () {
         var self = this;
 
+        // Clear existing timer if any
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+
         self.updateDom(self.config.animationSpeed);
 
         // Broadcast NewsFeed if needed
@@ -433,8 +463,21 @@ Module.register("MMM-NewsFeed", {
             self.sendNotification("NEWS_FEED", { items: self.newsItems });
         }
 
-        timer = setInterval(function () {
+        this.timer = setInterval(function () {
+            // Skip automatic update if gesture is in progress
+            if (self.gestureInProgress) {
+                Log.info(self.name + " - Skipping auto scroll due to gesture in progress");
+                return;
+            }
+            
+            // Skip automatic update if full article is being displayed
+            if (self.config.showFullArticle) {
+                Log.info(self.name + " - Skipping auto scroll due to full article being displayed");
+                return;
+            }
+            
             self.activeItem++;
+            Log.info(self.name + " - Auto scrolling to article #" + self.activeItem);
             self.updateDom(self.config.animationSpeed);
 
             // Broadcast NewsFeed if needed
@@ -442,6 +485,84 @@ Module.register("MMM-NewsFeed", {
                 self.sendNotification("NEWS_FEED", { items: self.newsItems });
             }
         }, this.config.updateInterval);
+    },
+
+    /* pauseAutoScroll()
+     * Pause automatic scrolling during gesture handling
+     */
+    pauseAutoScroll: function () {
+        this.gestureInProgress = true;
+        Log.info(this.name + " - Pausing auto scroll due to gesture");
+        
+        // Clear the timer completely
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        
+        // Clear any existing timeout and reset it
+        if (this.gestureTimeout) {
+            clearTimeout(this.gestureTimeout);
+        }
+        
+        // Set timeout to resume auto scroll after gesture handling
+        // This will be reset each time a new gesture is detected
+        var self = this;
+        this.gestureTimeout = setTimeout(function() {
+            Log.info(self.name + " - Auto resuming scroll after 10 seconds of inactivity");
+            self.resumeAutoScroll();
+        }, 10000); // Resume after 10 seconds of no gestures
+    },
+
+    /* resumeAutoScroll()
+     * Resume automatic scrolling after gesture handling
+     */
+    resumeAutoScroll: function () {
+        this.gestureInProgress = false;
+        Log.info(this.name + " - Resuming auto scroll");
+        
+        if (this.gestureTimeout) {
+            clearTimeout(this.gestureTimeout);
+            this.gestureTimeout = null;
+        }
+        
+        // Restart the timer if it's not running and full article is not being displayed
+        if (!this.timer && !this.config.showFullArticle) {
+            this.scheduleUpdateInterval();
+        }
+    },
+
+    /* startArticleTimeout()
+     * Start timeout for full article - close it after specified time
+     */
+    startArticleTimeout: function () {
+        var self = this;
+        
+        // Clear existing timeout
+        if (this.articleTimeout) {
+            clearTimeout(this.articleTimeout);
+        }
+        
+        // Set new timeout
+        this.articleTimeout = setTimeout(function() {
+            if (self.config.showFullArticle) {
+                Log.info(self.name + " - Closing full article due to timeout");
+                self.resetDescrOrFullArticleAndTimer();
+            }
+        }, this.config.fullArticleTimeout);
+        
+        Log.info(this.name + " - Started article timeout (" + (this.config.fullArticleTimeout / 1000) + " seconds)");
+    },
+
+    /* clearArticleTimeout()
+     * Clear timeout for full article
+     */
+    clearArticleTimeout: function () {
+        if (this.articleTimeout) {
+            clearTimeout(this.articleTimeout);
+            this.articleTimeout = null;
+            Log.info(this.name + " - Cleared article timeout");
+        }
     },
 
     /* capitalizeFirstLetter(string)
@@ -456,63 +577,236 @@ Module.register("MMM-NewsFeed", {
     },
 
     resetDescrOrFullArticleAndTimer: function () {
-        this.isShowingDescription = this.config.showDescription;
-        this.config.showFullArticle = false;
-        this.scrollPosition = 0;
-        // reset bottom bar alignment
-        document.getElementsByClassName("region bottom bar")[0].style.bottom =
-            "0";
-        document.getElementsByClassName("region bottom bar")[0].style.top =
-            "inherit";
-        if (!timer) {
-            this.scheduleUpdateInterval();
+        var self = this;
+        
+        // If we're currently showing full article, animate the close
+        if (this.config.showFullArticle) {
+            // Add hide class to full article elements
+            var content = document.querySelector('.newsfeed-content');
+            if (content) {
+                var fullArticle = content.querySelector('.full-article-iframe, .article-content');
+                if (fullArticle) {
+                    fullArticle.classList.add('hide');
+                }
+            }
+            
+            // Wait for fade out, then reset and show title/description
+            setTimeout(function() {
+                self.isShowingDescription = self.config.showDescription;
+                self.config.showFullArticle = false;
+                self.scrollPosition = 0;
+                
+                // reset bottom bar alignment
+                document.getElementsByClassName("region bottom bar")[0].style.bottom = "0";
+                document.getElementsByClassName("region bottom bar")[0].style.top = "inherit";
+                
+                // Resume auto scroll when closing full article
+                self.fullArticlePaused = false;
+                self.clearArticleTimeout();
+                if (!self.timer && !self.gestureInProgress) {
+                    self.scheduleUpdateInterval();
+                }
+                
+                // Update DOM and add fade-in animation to title/description
+                self.updateDom(0);
+                
+                // Add fade-in animation to new elements
+                setTimeout(function() {
+                    var newContent = document.querySelector('.newsfeed-content');
+                    if (newContent) {
+                        var title = newContent.querySelector('.newsfeed-title');
+                        var desc = newContent.querySelector('.newsfeed-desc');
+                        var source = newContent.querySelector('.newsfeed-source');
+                        
+                        if (title) title.classList.add('fade-in');
+                        if (desc) desc.classList.add('fade-in');
+                        if (source) source.classList.add('fade-in');
+                    }
+                }, 50);
+            }, 400);
+        } else {
+            // Just reset normally if not showing full article
+            this.isShowingDescription = this.config.showDescription;
+            this.config.showFullArticle = false;
+            this.scrollPosition = 0;
+            // reset bottom bar alignment
+            document.getElementsByClassName("region bottom bar")[0].style.bottom = "0";
+            document.getElementsByClassName("region bottom bar")[0].style.top = "inherit";
+            // Resume auto scroll when closing full article
+            this.fullArticlePaused = false;
+            this.clearArticleTimeout();
+            if (!this.timer && !this.gestureInProgress) {
+                this.scheduleUpdateInterval();
+            }
         }
     },
 
-    notificationReceived: function (notification, payload, sender) {
-        if (notification === "ARTICLE_NEXT") {
-            var before = this.activeItem;
+    smoothScrollTo: function (targetPosition) {
+        var self = this;
+        var startPosition = window.pageYOffset || document.documentElement.scrollTop;
+        var distance = targetPosition - startPosition;
+        var duration = 600; // Animation duration in milliseconds
+        var startTime = null;
+
+        // Get maximum scroll position
+        var maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        
+        // Ensure scroll position is within bounds
+        if (targetPosition < 0) {
+            targetPosition = 0;
+        } else if (targetPosition > maxScroll) {
+            targetPosition = maxScroll;
+        }
+        
+        distance = targetPosition - startPosition;
+
+        function animation(currentTime) {
+            if (startTime === null) startTime = currentTime;
+            var timeElapsed = currentTime - startTime;
+            var progress = Math.min(timeElapsed / duration, 1);
+            
+            // Use easing function for smooth animation
+            var easeInOutCubic = function(t) {
+                return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+            };
+            
+            var easedProgress = easeInOutCubic(progress);
+            var currentPosition = startPosition + (distance * easedProgress);
+            
+            window.scrollTo(0, currentPosition);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animation);
+            } else {
+                // Update scroll position to exact target
+                self.scrollPosition = targetPosition;
+            }
+        }
+
+        requestAnimationFrame(animation);
+    },
+
+    addKeyboardSupport: function () {
+        var self = this;
+        
+        document.addEventListener('keydown', function(event) {
+            // Only handle keyboard events when full article is showing
+            if (!self.config.showFullArticle) return;
+            
+            switch(event.key) {
+                case 'ArrowUp':
+                case 'PageUp':
+                    event.preventDefault();
+                    self.scrollPosition -= self.config.scrollLength;
+                    self.smoothScrollTo(self.scrollPosition);
+                    break;
+                case 'ArrowDown':
+                case 'PageDown':
+                    event.preventDefault();
+                    self.scrollPosition += self.config.scrollLength;
+                    self.smoothScrollTo(self.scrollPosition);
+                    break;
+                case 'Home':
+                    event.preventDefault();
+                    self.scrollPosition = 0;
+                    self.smoothScrollTo(self.scrollPosition);
+                    break;
+                case 'End':
+                    event.preventDefault();
+                    var maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+                    self.scrollPosition = maxScroll;
+                    self.smoothScrollTo(self.scrollPosition);
+                    break;
+                case 'Escape':
+                    event.preventDefault();
+                    self.resetDescrOrFullArticleAndTimer();
+                    Log.info(self.name + " - closing full article (ESC key)");
+                    break;
+            }
+        });
+    },
+
+    animateArticleChange: function (direction) {
+        var self = this;
+        var before = this.activeItem;
+        
+        // Prevent multiple animations at once
+        if (this.animationDirection) {
+            return;
+        }
+        
+        // Update active item
+        if (direction === "right") {
             this.activeItem++;
             if (this.activeItem >= this.newsItems.length) {
                 this.activeItem = 0;
             }
-            this.resetDescrOrFullArticleAndTimer();
-            Log.info(
-                this.name +
-                    " - going from article #" +
-                    before +
-                    " to #" +
-                    this.activeItem +
-                    " (of " +
-                    this.newsItems.length +
-                    ")"
-            );
-            this.updateDom(100);
-        } else if (notification === "ARTICLE_PREVIOUS") {
-            var before = this.activeItem;
+        } else {
             this.activeItem--;
             if (this.activeItem < 0) {
                 this.activeItem = this.newsItems.length - 1;
             }
-            this.resetDescrOrFullArticleAndTimer();
-            Log.info(
-                this.name +
-                    " - going from article #" +
-                    before +
-                    " to #" +
-                    this.activeItem +
-                    " (of " +
-                    this.newsItems.length +
-                    ")"
-            );
-            this.updateDom(100);
+        }
+        
+        // Reset description/full article state but don't restart timer yet
+        this.isShowingDescription = this.config.showDescription;
+        this.config.showFullArticle = false;
+        this.scrollPosition = 0;
+        
+        // Reset bottom bar alignment
+        document.getElementsByClassName("region bottom bar")[0].style.bottom = "0";
+        document.getElementsByClassName("region bottom bar")[0].style.top = "inherit";
+        
+        Log.info(
+            this.name +
+                " - going from article #" +
+                before +
+                " to #" +
+                this.activeItem +
+                " (of " +
+                this.newsItems.length +
+                ")"
+        );
+        
+        // Use simple but effective animation
+        this.animationDirection = "scroll-out-" + direction;
+        this.updateDom(0);
+        
+        // After slide out, show new content sliding in
+        setTimeout(function() {
+            self.animationDirection = "scroll-in-" + direction;
+            self.updateDom(0);
+            
+            // Reset animation direction after animation completes
+            setTimeout(function() {
+                self.animationDirection = null;
+                // Don't resume auto scroll immediately - let the 10 second timeout handle it
+            }, 400);
+        }, 200);
+    },
+
+
+    notificationReceived: function (notification, payload, sender) {
+        if (notification === "ARTICLE_NEXT") {
+            // Pause auto scroll immediately when gesture is detected
+            this.pauseAutoScroll();
+            this.animateArticleChange("right");
+        } else if (notification === "ARTICLE_PREVIOUS") {
+            // Pause auto scroll immediately when gesture is detected
+            this.pauseAutoScroll();
+            this.animateArticleChange("left");
         }
         // if "more details" is received the first time: show article summary, on second time show full article
         else if (notification === "ARTICLE_MORE_DETAILS") {
+            // Reset article timeout on gesture
+            if (this.config.showFullArticle) {
+                this.startArticleTimeout();
+            }
+            
             // full article is already showing, so scrolling down
             if (this.config.showFullArticle === true) {
                 this.scrollPosition += this.config.scrollLength;
-                window.scrollTo(0, this.scrollPosition);
+                this.smoothScrollTo(this.scrollPosition);
                 Log.info(this.name + " - scrolling down");
                 Log.info(
                     this.name +
@@ -523,9 +817,14 @@ Module.register("MMM-NewsFeed", {
                 this.showFullArticle();
             }
         } else if (notification === "ARTICLE_SCROLL_UP") {
+            // Reset article timeout on gesture
+            if (this.config.showFullArticle) {
+                this.startArticleTimeout();
+            }
+            
             if (this.config.showFullArticle === true) {
                 this.scrollPosition -= this.config.scrollLength;
-                window.scrollTo(0, this.scrollPosition);
+                this.smoothScrollTo(this.scrollPosition);
                 Log.info(this.name + " - scrolling up");
                 Log.info(
                     this.name +
@@ -536,7 +835,6 @@ Module.register("MMM-NewsFeed", {
         } else if (notification === "ARTICLE_LESS_DETAILS") {
             this.resetDescrOrFullArticleAndTimer();
             Log.info(this.name + " - showing only article titles again");
-            this.updateDom(100);
         } else if (notification === "ARTICLE_TOGGLE_FULL") {
             if (this.config.showFullArticle) {
                 this.activeItem++;
@@ -556,24 +854,60 @@ Module.register("MMM-NewsFeed", {
     },
 
     showFullArticle: function () {
-        this.isShowingDescription = !this.isShowingDescription;
-        this.config.showFullArticle = !this.isShowingDescription;
-        // make bottom bar align to top to allow scrolling
-        if (this.config.showFullArticle === true) {
-            document.getElementsByClassName(
-                "region bottom bar"
-            )[0].style.bottom = "inherit";
-            document.getElementsByClassName("region bottom bar")[0].style.top =
-                "-90px";
+        var self = this;
+        
+        // If we're about to show full article, fade out current content first
+        if (!this.config.showFullArticle) {
+            // Add fade-out class to current elements
+            var content = document.querySelector('.newsfeed-content');
+            if (content) {
+                var title = content.querySelector('.newsfeed-title');
+                var desc = content.querySelector('.newsfeed-desc');
+                var source = content.querySelector('.newsfeed-source');
+                
+                if (title) title.classList.add('fade-out');
+                if (desc) desc.classList.add('fade-out');
+                if (source) source.classList.add('fade-out');
+            }
+            
+            // Wait for fade out, then show full article
+            setTimeout(function() {
+                self.isShowingDescription = !self.isShowingDescription;
+                self.config.showFullArticle = !self.isShowingDescription;
+                
+                // make bottom bar align to top to allow scrolling
+                if (self.config.showFullArticle === true) {
+                    document.getElementsByClassName(
+                        "region bottom bar"
+                    )[0].style.bottom = "inherit";
+                    document.getElementsByClassName("region bottom bar")[0].style.top =
+                        "-90px";
+                }
+                // Pause auto scroll when showing full article
+                self.fullArticlePaused = true;
+                if (self.timer) {
+                    clearInterval(self.timer);
+                    self.timer = null;
+                }
+                
+                // Start timeout for full article
+                if (self.config.showFullArticle) {
+                    self.startArticleTimeout();
+                }
+                
+                Log.info(
+                    self.name + " - showing " + (self.isShowingDescription
+                        ? "article description"
+                        : "full article") + " - auto scroll paused"
+                );
+                self.updateDom(0);
+            }, 500);
+        } else {
+            // Just toggle normally if already showing full article
+            this.isShowingDescription = !this.isShowingDescription;
+            this.config.showFullArticle = !this.isShowingDescription;
+            this.updateDom(0);
         }
-        clearInterval(timer);
-        timer = null;
-        Log.info(
-            this.name + " - showing " + this.isShowingDescription
-                ? "article description"
-                : "full article"
-        );
-        this.updateDom(100);
     },
 
     // https://stackoverflow.com/a/7467863
