@@ -77,6 +77,8 @@ Module.register("MMM-NewsFeed", {
         this.timer = null;
         this.fullArticlePaused = false;
         this.articleTimeout = null;
+        this.articleOpeningInProgress = false;
+        this.articleOpeningTimeout = null;
 
         this.registerFeeds();
 
@@ -309,6 +311,12 @@ Module.register("MMM-NewsFeed", {
                     fullArticle.classList.add("show");
                     // Hide loading overlay when content is ready
                     self.hideLoadingOverlay();
+                    // Clear article opening flag and timeout
+                    self.articleOpeningInProgress = false;
+                    if (self.articleOpeningTimeout) {
+                        clearTimeout(self.articleOpeningTimeout);
+                        self.articleOpeningTimeout = null;
+                    }
                 }, 200);
             }
 
@@ -482,6 +490,12 @@ Module.register("MMM-NewsFeed", {
                 return;
             }
             
+            // Skip automatic update if article is being opened
+            if (self.articleOpeningInProgress) {
+                Log.info(self.name + " - Skipping auto scroll due to article opening in progress");
+                return;
+            }
+            
             self.activeItem++;
             Log.info(self.name + " - Auto scrolling to article #" + self.activeItem);
             self.updateDom(self.config.animationSpeed);
@@ -585,6 +599,13 @@ Module.register("MMM-NewsFeed", {
     resetDescrOrFullArticleAndTimer: function () {
         var self = this;
         
+        // Clear article opening flag and timeout
+        this.articleOpeningInProgress = false;
+        if (this.articleOpeningTimeout) {
+            clearTimeout(this.articleOpeningTimeout);
+            this.articleOpeningTimeout = null;
+        }
+        
         // Hide loading overlay if it's showing
         this.hideLoadingOverlay();
         
@@ -616,22 +637,8 @@ Module.register("MMM-NewsFeed", {
                     self.scheduleUpdateInterval();
                 }
                 
-                // Update DOM and add fade-in animation to title/description
+                // Update DOM without fade-in animation
                 self.updateDom(0);
-                
-                // Add fade-in animation to new elements
-                setTimeout(function() {
-                    var newContent = document.querySelector('.newsfeed-content');
-                    if (newContent) {
-                        var title = newContent.querySelector('.newsfeed-title');
-                        var desc = newContent.querySelector('.newsfeed-desc');
-                        var source = newContent.querySelector('.newsfeed-source');
-                        
-                        if (title) title.classList.add('fade-in');
-                        if (desc) desc.classList.add('fade-in');
-                        if (source) source.classList.add('fade-in');
-                    }
-                }, 50);
             }, 400);
         } else {
             // Just reset normally if not showing full article
@@ -741,6 +748,12 @@ Module.register("MMM-NewsFeed", {
         
         // Prevent multiple animations at once
         if (this.animationDirection) {
+            return;
+        }
+        
+        // Prevent article change if article is being opened
+        if (this.articleOpeningInProgress) {
+            Log.info(this.name + " - Skipping article change due to article opening in progress");
             return;
         }
         
@@ -884,6 +897,20 @@ Module.register("MMM-NewsFeed", {
         
         // If we're about to show full article, show loading overlay immediately
         if (!this.config.showFullArticle) {
+            // Set article opening flag to prevent auto scroll
+            self.articleOpeningInProgress = true;
+            
+            // Set timeout to clear the flag in case something goes wrong
+            if (self.articleOpeningTimeout) {
+                clearTimeout(self.articleOpeningTimeout);
+            }
+            self.articleOpeningTimeout = setTimeout(function() {
+                if (self.articleOpeningInProgress) {
+                    Log.info(self.name + " - Clearing article opening flag due to timeout");
+                    self.articleOpeningInProgress = false;
+                }
+            }, 5000); // 5 second timeout
+            
             // Show loading overlay immediately
             self.showLoadingOverlay();
             
@@ -916,6 +943,18 @@ Module.register("MMM-NewsFeed", {
                     ? "article description"
                     : "full article") + " - auto scroll paused"
             );
+            
+            // Double-check that activeItem is still valid after setting the lock
+            if (self.newsItems.length === 0 || !self.newsItems[self.activeItem]) {
+                Log.info(self.name + " - Active item became invalid during article opening, aborting");
+                self.articleOpeningInProgress = false;
+                if (self.articleOpeningTimeout) {
+                    clearTimeout(self.articleOpeningTimeout);
+                    self.articleOpeningTimeout = null;
+                }
+                self.hideLoadingOverlay();
+                return;
+            }
             
             // Update DOM to create the full article content
             self.updateDom(0);
