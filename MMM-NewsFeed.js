@@ -305,19 +305,18 @@ Module.register("MMM-NewsFeed", {
                 }
                 content.appendChild(fullArticle);
                 
-                // Trigger smooth reveal animation after a short delay
+                // Start the slide in as soon as MagicMirror has inserted the article
                 var self = this;
                 setTimeout(function() {
+                    fullArticle.getBoundingClientRect(); // commit the start position, or the slide is skipped
                     fullArticle.classList.add("show");
-                    // Hide loading overlay when content is ready
-                    self.hideLoadingOverlay();
                     // Clear article opening flag and timeout
                     self.articleOpeningInProgress = false;
                     if (self.articleOpeningTimeout) {
                         clearTimeout(self.articleOpeningTimeout);
                         self.articleOpeningTimeout = null;
                     }
-                }, 200);
+                }, 0);
             }
 
             wrapper.appendChild(content);
@@ -605,10 +604,7 @@ Module.register("MMM-NewsFeed", {
             clearTimeout(this.articleOpeningTimeout);
             this.articleOpeningTimeout = null;
         }
-        
-        // Hide loading overlay if it's showing
-        this.hideLoadingOverlay();
-        
+
         // If we're currently showing full article, animate the close
         if (this.config.showFullArticle) {
             // Add hide class to full article elements
@@ -1028,7 +1024,6 @@ Module.register("MMM-NewsFeed", {
             return;
         }
         
-        // If we're about to show full article, show loading overlay immediately
         if (!this.config.showFullArticle) {
             // Set article opening flag to prevent auto scroll
             self.articleOpeningInProgress = true;
@@ -1043,10 +1038,7 @@ Module.register("MMM-NewsFeed", {
                     self.articleOpeningInProgress = false;
                 }
             }, 5000); // 5 second timeout
-            
-            // Show loading overlay immediately
-            self.showLoadingOverlay();
-            
+
             // Set full article state immediately
             self.isShowingDescription = !self.isShowingDescription;
             self.config.showFullArticle = !self.isShowingDescription;
@@ -1086,7 +1078,6 @@ Module.register("MMM-NewsFeed", {
                     clearTimeout(self.articleOpeningTimeout);
                     self.articleOpeningTimeout = null;
                 }
-                self.hideLoadingOverlay();
                 return;
             }
             
@@ -1097,57 +1088,6 @@ Module.register("MMM-NewsFeed", {
             this.isShowingDescription = !this.isShowingDescription;
             this.config.showFullArticle = !this.isShowingDescription;
             this.updateDom(0);
-        }
-    },
-
-    showLoadingOverlay: function () {
-        var self = this;
-        
-        // Create loading overlay if it doesn't exist
-        var overlay = document.getElementById('newsfeed-loading-overlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'newsfeed-loading-overlay';
-            overlay.className = 'newsfeed-loading-overlay';
-            
-            // Create loading content
-            var loadingContent = document.createElement('div');
-            loadingContent.style.display = 'flex';
-            loadingContent.style.flexDirection = 'column';
-            loadingContent.style.alignItems = 'center';
-            
-            // Create spinner
-            var spinner = document.createElement('div');
-            spinner.className = 'newsfeed-loading-spinner';
-            
-            // Create loading text
-            var loadingText = document.createElement('div');
-            loadingText.className = 'newsfeed-loading-text';
-            loadingText.textContent = self.translate('LOADING_ARTICLE');
-            
-            loadingContent.appendChild(spinner);
-            loadingContent.appendChild(loadingText);
-            overlay.appendChild(loadingContent);
-            
-            document.body.appendChild(overlay);
-        }
-        
-        // Show overlay with animation
-        overlay.classList.add('show');
-        Log.info(this.name + " - Loading overlay shown");
-    },
-
-    hideLoadingOverlay: function () {
-        var overlay = document.getElementById('newsfeed-loading-overlay');
-        if (overlay) {
-            overlay.classList.remove('show');
-            // Remove overlay after animation completes
-            setTimeout(function() {
-                if (overlay && overlay.parentNode) {
-                    overlay.parentNode.removeChild(overlay);
-                }
-            }, 500);
-            Log.info(this.name + " - Loading overlay hidden");
         }
     },
 
