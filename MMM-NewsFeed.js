@@ -922,7 +922,19 @@ Module.register("MMM-NewsFeed", {
     },
 
     notificationReceived: function (notification, payload, sender) {
-        if (notification === "ARTICLE_NEXT") {
+        if (notification === "MODULE_DOM_UPDATED") {
+            // An animated updateDom (auto scroll) renders its DOM up front and swaps it in
+            // only after the fade-out. If the article was opened in between, that stale
+            // news bar replaces it - render the article again.
+            if (
+                this.config.showFullArticle &&
+                this.newsItems.length > 0 &&
+                !document.querySelector("#" + this.identifier + " .article-content, #" + this.identifier + " .full-article-iframe")
+            ) {
+                Log.info(this.name + " - full article overwritten by a stale update, rendering it again");
+                this.updateDom(0);
+            }
+        } else if (notification === "ARTICLE_NEXT") {
             // Pause auto scroll immediately when gesture is detected
             this.pauseAutoScroll();
             this.animateArticleChange("right");
