@@ -596,8 +596,6 @@ Module.register("MMM-NewsFeed", {
     },
 
     resetDescrOrFullArticleAndTimer: function () {
-        var self = this;
-        
         // Clear article opening flag and timeout
         this.articleOpeningInProgress = false;
         if (this.articleOpeningTimeout) {
@@ -605,56 +603,52 @@ Module.register("MMM-NewsFeed", {
             this.articleOpeningTimeout = null;
         }
 
-        // If we're currently showing full article, animate the close
-        if (this.config.showFullArticle) {
-            // Add hide class to full article elements
-            var content = document.querySelector('.newsfeed-content');
-            if (content) {
-                var fullArticle = content.querySelector('.full-article-iframe, .article-content');
-                if (fullArticle) {
-                    fullArticle.classList.add('hide');
-                    // Swap page scroll for an equal transform so nothing moves yet, then the
-                    // slide down reveals the dashboard at the top instead of empty page below it.
-                    fullArticle.style.transition = "none";
-                    fullArticle.style.transform = "translateY(" + (-window.scrollY) + "px)";
-                    window.scrollTo(0, 0);
-                    fullArticle.getBoundingClientRect(); // commit the jump before re-enabling the transition
-                    fullArticle.style.transition = "";
-                    fullArticle.style.transform = "translateY(" + window.innerHeight + "px)";
-                }
-            }
-
-            // Wait for the slide out (0.6s in style.css), then reset and show title/description
-            setTimeout(function() {
-                self.isShowingDescription = self.config.showDescription;
-                self.config.showFullArticle = false;
-                self.scrollPosition = 0;
-                
-                self.resetBottomBar();
-
-                // Resume auto scroll when closing full article
-                self.fullArticlePaused = false;
-                self.clearArticleTimeout();
-                if (!self.timer && !self.gestureInProgress) {
-                    self.scheduleUpdateInterval();
-                }
-                
-                // Update DOM without fade-in animation
-                self.updateDom(0);
-            }, 600);
-        } else {
-            // Just reset normally if not showing full article
-            this.isShowingDescription = this.config.showDescription;
-            this.config.showFullArticle = false;
-            this.scrollPosition = 0;
-            this.resetBottomBar();
-            // Resume auto scroll when closing full article
-            this.fullArticlePaused = false;
-            this.clearArticleTimeout();
-            if (!this.timer && !this.gestureInProgress) {
-                this.scheduleUpdateInterval();
+        var closingArticle = this.config.showFullArticle;
+        if (closingArticle) {
+            // A copy of the article slides down while the real bar is already back at
+            // the bottom with the teaser, so the teaser is revealed rather than popping in.
+            var ghost = this.cloneBottomBar();
+            var sheet = ghost.querySelector(".full-article-iframe, .article-content");
+            if (sheet) {
+                // Swap page scroll for an equal transform so nothing moves yet, then the
+                // slide down reveals the dashboard at the top instead of empty page below it.
+                sheet.style.transition = "none";
+                sheet.style.transform = "translateY(" + (-window.scrollY) + "px)";
+                window.scrollTo(0, 0);
+                sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
+                sheet.style.transition = "";
+                sheet.style.transform = "translateY(" + window.innerHeight + "px)";
             }
         }
+
+        this.isShowingDescription = this.config.showDescription;
+        this.config.showFullArticle = false;
+        this.scrollPosition = 0;
+        this.resetBottomBar();
+        if (closingArticle) {
+            // Before scheduleUpdateInterval: its animated update then finds the teaser
+            // already in place and skips, instead of fading it out and back in.
+            this.updateDom(0);
+        }
+
+        // Resume auto scroll when closing full article
+        this.fullArticlePaused = false;
+        this.clearArticleTimeout();
+        if (!this.timer && !this.gestureInProgress) {
+            this.scheduleUpdateInterval();
+        }
+    },
+
+    // Copy of the bottom bar left on screen for the length of a slide, so the real
+    // region can already move. It goes after the region, so MagicMirror's querySelector
+    // lookups still find the real one; stacking between the two is set by z-index.
+    cloneBottomBar: function () {
+        var bottomBar = document.getElementsByClassName("region bottom bar")[0];
+        var ghost = bottomBar.cloneNode(true);
+        ghost.querySelectorAll("[id]").forEach(function (e) { e.removeAttribute("id"); });
+        bottomBar.after(ghost);
+        setTimeout(function () { ghost.remove(); }, 700); // slides take 0.6s (style.css)
+        return ghost;
     },
 
     // Undo the full article layout: put the bottom bar back in place and scroll the
@@ -1048,14 +1042,10 @@ Module.register("MMM-NewsFeed", {
             // rather than fixed, because body gap and custom.css shifts vary per setup
             if (self.config.showFullArticle === true) {
                 var bottomBar = document.getElementsByClassName("region bottom bar")[0];
-                // Leave a copy of the bar (teaser, page indicator) where it was until the
-                // article has slid over it. It goes after the region, so MagicMirror's
-                // querySelector lookups still find the real one; z-index keeps it underneath.
-                var ghost = bottomBar.cloneNode(true);
-                ghost.querySelectorAll("[id]").forEach(function (e) { e.removeAttribute("id"); });
-                bottomBar.after(ghost);
+                // Leave the teaser and page indicator where they were until the article
+                // has slid over them; z-index keeps the copy under the real region.
+                self.cloneBottomBar();
                 bottomBar.style.zIndex = "1";
-                setTimeout(function () { ghost.remove(); }, 700); // slide in: 0.6s in style.css
                 var bodyTop = document.body.getBoundingClientRect().top + window.scrollY;
                 bottomBar.style.bottom = "inherit";
                 bottomBar.style.top =
