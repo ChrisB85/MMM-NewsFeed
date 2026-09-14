@@ -617,10 +617,18 @@ Module.register("MMM-NewsFeed", {
                 var fullArticle = content.querySelector('.full-article-iframe, .article-content');
                 if (fullArticle) {
                     fullArticle.classList.add('hide');
+                    // Swap page scroll for an equal transform so nothing moves yet, then the
+                    // slide down reveals the dashboard at the top instead of empty page below it.
+                    fullArticle.style.transition = "none";
+                    fullArticle.style.transform = "translateY(" + (-window.scrollY) + "px)";
+                    window.scrollTo(0, 0);
+                    fullArticle.getBoundingClientRect(); // commit the jump before re-enabling the transition
+                    fullArticle.style.transition = "";
+                    fullArticle.style.transform = "translateY(" + window.innerHeight + "px)";
                 }
             }
-            
-            // Wait for fade out, then reset and show title/description
+
+            // Wait for the slide out (0.6s in style.css), then reset and show title/description
             setTimeout(function() {
                 self.isShowingDescription = self.config.showDescription;
                 self.config.showFullArticle = false;
@@ -637,7 +645,7 @@ Module.register("MMM-NewsFeed", {
                 
                 // Update DOM without fade-in animation
                 self.updateDom(0);
-            }, 400);
+            }, 600);
         } else {
             // Just reset normally if not showing full article
             this.isShowingDescription = this.config.showDescription;
