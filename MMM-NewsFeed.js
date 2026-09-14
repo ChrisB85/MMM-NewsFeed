@@ -664,6 +664,7 @@ Module.register("MMM-NewsFeed", {
         var bottomBar = document.getElementsByClassName("region bottom bar")[0];
         bottomBar.style.bottom = "0";
         bottomBar.style.top = "inherit";
+        bottomBar.style.zIndex = "";
         window.scrollTo(0, 0);
     },
 
@@ -1047,6 +1048,14 @@ Module.register("MMM-NewsFeed", {
             // rather than fixed, because body gap and custom.css shifts vary per setup
             if (self.config.showFullArticle === true) {
                 var bottomBar = document.getElementsByClassName("region bottom bar")[0];
+                // Leave a copy of the bar (teaser, page indicator) where it was until the
+                // article has slid over it. It goes after the region, so MagicMirror's
+                // querySelector lookups still find the real one; z-index keeps it underneath.
+                var ghost = bottomBar.cloneNode(true);
+                ghost.querySelectorAll("[id]").forEach(function (e) { e.removeAttribute("id"); });
+                bottomBar.after(ghost);
+                bottomBar.style.zIndex = "1";
+                setTimeout(function () { ghost.remove(); }, 700); // slide in: 0.6s in style.css
                 var bodyTop = document.body.getBoundingClientRect().top + window.scrollY;
                 bottomBar.style.bottom = "inherit";
                 bottomBar.style.top =
