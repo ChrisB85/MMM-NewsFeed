@@ -627,7 +627,7 @@ Module.register("MMM-NewsFeed", {
         this.resetBottomBar();
         if (closingArticle) {
             // Before scheduleUpdateInterval: its animated update then finds the teaser
-            // already in place and skips, instead of fading it out and back in.
+            // already in place and skips (see getHeader), instead of fading it out and in.
             this.updateDom(0);
         }
 
@@ -1101,6 +1101,13 @@ Module.register("MMM-NewsFeed", {
             /([^>\r\n]?)(\r\n|\n\r|\r|\n)/g,
             "$1" + breakTag + "$2"
         );
+    },
+
+    // MagicMirror compares getHeader() with the header's innerHTML to decide whether an
+    // animated update is needed; undefined never equals "", so without a header every
+    // update faded the module out and back in, even when the content was identical.
+    getHeader: function () {
+        return this.data.header || "";
     },
 
     getStyles: function () {
