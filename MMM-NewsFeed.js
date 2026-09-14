@@ -1027,13 +1027,14 @@ Module.register("MMM-NewsFeed", {
             self.isShowingDescription = !self.isShowingDescription;
             self.config.showFullArticle = !self.isShowingDescription;
             
-            // make bottom bar align to top to allow scrolling
+            // make bottom bar align to top to allow scrolling; the offset is measured
+            // rather than fixed, because body gap and custom.css shifts vary per setup
             if (self.config.showFullArticle === true) {
-                document.getElementsByClassName(
-                    "region bottom bar"
-                )[0].style.bottom = "inherit";
-                document.getElementsByClassName("region bottom bar")[0].style.top =
-                    "-90px";
+                var bottomBar = document.getElementsByClassName("region bottom bar")[0];
+                var bodyTop = document.body.getBoundingClientRect().top + window.scrollY;
+                bottomBar.style.bottom = "inherit";
+                bottomBar.style.top =
+                    -(bodyTop + document.getElementById(self.identifier).offsetTop) + "px";
             }
             // Pause auto scroll when showing full article
             self.fullArticlePaused = true;
