@@ -626,10 +626,8 @@ Module.register("MMM-NewsFeed", {
                 self.config.showFullArticle = false;
                 self.scrollPosition = 0;
                 
-                // reset bottom bar alignment
-                document.getElementsByClassName("region bottom bar")[0].style.bottom = "0";
-                document.getElementsByClassName("region bottom bar")[0].style.top = "inherit";
-                
+                self.resetBottomBar();
+
                 // Resume auto scroll when closing full article
                 self.fullArticlePaused = false;
                 self.clearArticleTimeout();
@@ -645,9 +643,7 @@ Module.register("MMM-NewsFeed", {
             this.isShowingDescription = this.config.showDescription;
             this.config.showFullArticle = false;
             this.scrollPosition = 0;
-            // reset bottom bar alignment
-            document.getElementsByClassName("region bottom bar")[0].style.bottom = "0";
-            document.getElementsByClassName("region bottom bar")[0].style.top = "inherit";
+            this.resetBottomBar();
             // Resume auto scroll when closing full article
             this.fullArticlePaused = false;
             this.clearArticleTimeout();
@@ -655,6 +651,16 @@ Module.register("MMM-NewsFeed", {
                 this.scheduleUpdateInterval();
             }
         }
+    },
+
+    // Undo the full article layout: put the bottom bar back in place and scroll the
+    // page back to the top. Resetting only scrollPosition leaves the window where the
+    // article left it (clamped to the page's overflow), shifting every region up.
+    resetBottomBar: function () {
+        var bottomBar = document.getElementsByClassName("region bottom bar")[0];
+        bottomBar.style.bottom = "0";
+        bottomBar.style.top = "inherit";
+        window.scrollTo(0, 0);
     },
 
     smoothScrollTo: function (targetPosition) {
@@ -776,10 +782,8 @@ Module.register("MMM-NewsFeed", {
         this.config.showFullArticle = false;
         this.scrollPosition = 0;
         
-        // Reset bottom bar alignment
-        document.getElementsByClassName("region bottom bar")[0].style.bottom = "0";
-        document.getElementsByClassName("region bottom bar")[0].style.top = "inherit";
-        
+        this.resetBottomBar();
+
         Log.info(
             this.name +
                 " - going from article #" +
