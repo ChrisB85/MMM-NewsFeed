@@ -37,7 +37,14 @@ last snippet found, e.g. `["<p>Sources:</p>"]` hides a source list appended to e
 An unread-only feed can run empty. `showNoNewsMessage: true` then shows "No new articles"
 instead of the loading text; `hideLoading: true` hides the module until something arrives.
 
-Entries come from the account in the block, so each person can have their own module
-instance (e.g. shown by face recognition classes) with their own account.
+Entries come from the account in the block. `userFeeds` gives a person recognised by
+MMM-Face-Reco-DNN their own feeds while they are logged in (the default `feeds` otherwise):
+
+```js
+feeds: [ /* everything, for anyone */ ],
+userFeeds: {
+    Krzysiek: [ { title: "Wiadomości", url: "...", freshrss: { /* own account */ unreadOnly: true, markReadOnOpen: true } } ],
+},
+```
 
 Tests: `node --test test/*.test.js`

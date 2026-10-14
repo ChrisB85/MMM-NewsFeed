@@ -37,7 +37,8 @@ function loadModule () {
 		document: { getElementsByClassName: () => [bar()], createElement: element },
 		setTimeout: () => 0,
 		clearTimeout () {},
-		clearInterval () {}
+		clearInterval () {},
+		setInterval: () => 0
 	};
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../MMM-NewsFeed.js"), "utf8"), context);
 	const feed = { title: "Wiadomości", url: "http://rss", freshrss: { category: "Podsumowania", feed: "Wiadomości", markReadOnOpen: true } };
@@ -45,6 +46,8 @@ function loadModule () {
 		name: "MMM-NewsFeed",
 		config: Object.assign({}, definition.defaults, { feeds: [feed] }),
 		newsItems: [],
+		loggedInUsers: [],
+		lastFeeds: {},
 		activeItem: 0,
 		sent: [],
 		renders: 0,
@@ -127,4 +130,35 @@ test("an empty feed says so with showNoNewsMessage, otherwise it keeps the loadi
 	assert.strictEqual(module.getDom().innerHTML, "LOADING");
 	module.config.showNoNewsMessage = true;
 	assert.strictEqual(module.getDom().innerHTML, "NO_NEWS");
+});
+
+test("a logged in user with userFeeds gets their feeds, everyone else the default ones", () => {
+	const { module, key } = loadModule();
+	const mine = { title: "Moje", url: "http://rss", freshrss: { user: "me", category: "Podsumowania", feed: "Wiadomości", unreadOnly: true, markReadOnOpen: true } };
+	module.config.userFeeds = { Me: [mine] };
+	const mineKey = module.feedKey(mine);
+	assert.notStrictEqual(mineKey, key, "same stream read unread-only gets its own fetcher");
+
+	const feeds = { [key]: [item(1), item(2)], [mineKey]: [item(2)] };
+	module.socketNotificationReceived("NEWS_ITEMS", feeds);
+	assert.strictEqual(module.newsItems.map((i) => i.freshrssId).join(), ["id1", "id2"].join());
+
+	module.notificationReceived("USERS_LOGIN", ["Other"]);
+	assert.strictEqual(module.newsItems.length, 2, "a user without userFeeds sees the default feeds");
+	module.notificationReceived("USERS_LOGIN", ["Me"]);
+	assert.strictEqual(module.newsItems.map((i) => i.freshrssId).join(), ["id2"].join());
+	assert.strictEqual(module.newsItems[0].feedKey, mineKey);
+
+	module.notificationReceived("USERS_LOGOUT_MODULES", "Me");
+	assert.strictEqual(module.newsItems.length, 2);
+
+	module.notificationReceived("LOGGED_IN_USERS", ["Me"]);
+	assert.strictEqual(module.newsItems.length, 1, "picks up a user logged in before a restart");
+});
+
+test("every feed, default and per user, is registered with the node helper", () => {
+	const { module } = loadModule();
+	module.config.userFeeds = { Me: [{ url: "http://rss", freshrss: { user: "me", category: "C", unreadOnly: true } }] };
+	module.registerFeeds();
+	assert.strictEqual(module.sent.filter((n) => n.notification === "ADD_FEED").length, 2);
 });

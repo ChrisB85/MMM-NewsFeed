@@ -28,6 +28,7 @@ Module.register("MMM-NewsFeed", {
         lengthDescription: 400,
         hideLoading: false,
         showNoNewsMessage: false, // once loaded, an empty list says so instead of "loading"
+        userFeeds: {}, // {"<face recognition user>": [feeds]}: shown instead of feeds while that user is logged in
         reloadInterval: 5 * 60 * 1000, // every 5 minutes
         updateInterval: 10 * 1000,
         animationSpeed: 2.5 * 1000,
@@ -71,6 +72,8 @@ Module.register("MMM-NewsFeed", {
         moment.locale(config.language);
 
         this.newsItems = [];
+        this.loggedInUsers = [];
+        this.lastFeeds = {};
         this.loaded = false;
         this.activeItem = 0;
         this.scrollPosition = 0;
@@ -94,6 +97,7 @@ Module.register("MMM-NewsFeed", {
     // Override socket notification handler.
     socketNotificationReceived: function (notification, payload) {
         if (notification === "NEWS_ITEMS") {
+            this.lastFeeds = payload;
             this.generateFeed(payload);
 
             if (!this.loaded) {
@@ -357,8 +361,11 @@ Module.register("MMM-NewsFeed", {
      * registers the feeds to be used by the backend.
      */
     registerFeeds: function () {
-        for (var f in this.config.feeds) {
-            var feed = this.config.feeds[f];
+        var all = Object.values(this.config.userFeeds).reduce(function (list, feeds) {
+            return list.concat(feeds);
+        }, this.config.feeds);
+        for (var f in all) {
+            var feed = all[f];
             this.sendSocketNotification("ADD_FEED", {
                 key: this.feedKey(feed),
                 feed: feed,
@@ -470,12 +477,42 @@ Module.register("MMM-NewsFeed", {
 
     /* feedKey(feed)
      * Key the node helper files a feed's items under: its url, plus the stream for
-     * FreshRSS feeds (several of them share one url). Never includes the credentials.
+     * FreshRSS feeds (several of them share one url, also as different accounts or with
+     * unreadOnly). Never includes the credentials.
      */
     feedKey: function (feed) {
-        return feed.freshrss
-            ? feed.url + "#" + (feed.freshrss.category || "") + "/" + (feed.freshrss.feed || "")
+        var f = feed.freshrss;
+        return f
+            ? feed.url + "#" + (f.user || "") + "@" + (f.category || "") + "/" + (f.feed || "") + (f.unreadOnly ? "?unread" : "")
             : feed.url;
+    },
+
+    /* activeFeeds()
+     * Feeds of the first logged in user that has userFeeds, otherwise the default feeds.
+     */
+    activeFeeds: function () {
+        var user = this.loggedInUsers.find(function (name) {
+            return this.config.userFeeds[name];
+        }, this);
+        return user ? this.config.userFeeds[user] : this.config.feeds;
+    },
+
+    /* setLoggedInUsers(users)
+     * Switches to the feeds of the users now in front of the mirror.
+     */
+    setLoggedInUsers: function (users) {
+        var before = this.activeFeeds();
+        this.loggedInUsers = users;
+        if (this.activeFeeds() === before) {
+            return;
+        }
+        if (this.config.showFullArticle) {
+            this.resetDescrOrFullArticleAndTimer();
+        }
+        this.newsItems = [];
+        this.activeItem = 0;
+        this.generateFeed(this.lastFeeds);
+        this.updateDom(0);
     },
 
     /* markActiveRead()
@@ -486,7 +523,7 @@ Module.register("MMM-NewsFeed", {
         if (!item || !item.freshrssId || item.read) {
             return;
         }
-        var feed = this.config.feeds.find(function (f) {
+        var feed = this.activeFeeds().find(function (f) {
             return this.feedKey(f) === item.feedKey;
         }, this);
         if (feed && feed.freshrss.markReadOnOpen) {
@@ -503,8 +540,9 @@ Module.register("MMM-NewsFeed", {
      * returns bool
      */
     subscribedToFeed: function (feedUrl) {
-        for (var f in this.config.feeds) {
-            var feed = this.config.feeds[f];
+        var feeds = this.activeFeeds();
+        for (var f in feeds) {
+            var feed = feeds[f];
             if (this.feedKey(feed) === feedUrl) {
                 return true;
             }
@@ -520,8 +558,9 @@ Module.register("MMM-NewsFeed", {
      * returns string
      */
     titleForFeed: function (feedUrl) {
-        for (var f in this.config.feeds) {
-            var feed = this.config.feeds[f];
+        var feeds = this.activeFeeds();
+        for (var f in feeds) {
+            var feed = feeds[f];
             if (this.feedKey(feed) === feedUrl) {
                 return feed.title || "";
             }
@@ -993,7 +1032,20 @@ Module.register("MMM-NewsFeed", {
     },
 
     notificationReceived: function (notification, payload, sender) {
-        if (notification === "MODULE_DOM_UPDATED") {
+        if (notification === "DOM_OBJECTS_CREATED" && Object.keys(this.config.userFeeds).length > 0) {
+            this.sendNotification("GET_LOGGED_IN_USERS"); // after a restart someone may already be logged in
+        } else if (notification === "LOGGED_IN_USERS") {
+            this.setLoggedInUsers(payload.slice());
+        } else if (notification === "USERS_LOGIN") {
+            this.setLoggedInUsers(this.loggedInUsers.concat(payload.filter(function (user) {
+                return this.loggedInUsers.indexOf(user) === -1;
+            }, this)));
+        } else if (notification === "USERS_LOGOUT_MODULES" || notification === "USERS_LOGOUT") {
+            var gone = [].concat(payload);
+            this.setLoggedInUsers(this.loggedInUsers.filter(function (user) {
+                return gone.indexOf(user) === -1;
+            }));
+        } else if (notification === "MODULE_DOM_UPDATED") {
             // An animated updateDom (auto scroll) renders its DOM up front and swaps it in
             // only after the fade-out. If the article was opened in between, that stale
             // news bar replaces it - render the article again.
