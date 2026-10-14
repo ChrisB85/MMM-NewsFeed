@@ -16,7 +16,11 @@
 /* Other bottom bar modules (page indicator) would sit on the open article's lower edge,
    and their copy in the closing animation on top of the real ones. */
 .region.bottom.bar.newsfeed-article-open .module:not(.MMM-NewsFeed) {
-    visibility: hidden;
+    /* opacity, not visibility: the page indicator's dots set their own visibility.
+       !important beats MagicMirror's inline opacity; no transition, or they would fade
+       out at the top of the screen where the bar jumps; closing fades them back in. */
+    opacity: 0 !important;
+    transition: none !important;
 }
 
 /* Switching articles in the full view slides them sideways (switchFullArticle). */
