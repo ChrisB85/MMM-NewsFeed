@@ -22,9 +22,14 @@
     transform: translateY(0);
 }
 
+/* --image-max-height comes from the articleImageMaxHeight option (getDom). */
 .module.MMM-NewsFeed .article-content img {
+    display: block;
+    width: auto;
+    height: auto;
     max-width: 100%;
-    max-height: 50%;
+    max-height: var(--image-max-height, none);
+    margin: 0 auto;
 }
 
 /* Full article iframe animation */

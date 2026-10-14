@@ -19,13 +19,22 @@ function bar () {
 	};
 }
 
+function element () {
+	return {
+		children: [],
+		style: { setProperty (name, value) { this[name] = value; } },
+		classList: { add () {} },
+		appendChild (child) { this.children.push(child); }
+	};
+}
+
 function loadModule () {
 	let definition;
 	const context = {
 		Module: { register: (name, def) => { definition = def; } },
 		Log: { info () {} },
 		window: { scrollTo () {}, scrollY: 0 },
-		document: { getElementsByClassName: () => [bar()] },
+		document: { getElementsByClassName: () => [bar()], createElement: element },
 		setTimeout: () => 0,
 		clearTimeout () {},
 		clearInterval () {}
@@ -86,4 +95,16 @@ test("an open article that was read stays open after an unread-only reload", () 
 
 	module.notificationReceived("ARTICLE_NEXT");
 	assert.strictEqual(module.newsItems[module.activeItem].freshrssId, "id3");
+});
+
+test("articleImageMaxHeight caps images in the full article, unset leaves them alone", () => {
+	const { module, key } = loadModule();
+	module.generateFeed({ [key]: [item(1)] });
+	module.config.contentAsArticle = true;
+	module.config.showFullArticle = true;
+	const article = (dom) => dom.children[0].children.find((c) => /article-content/.test(c.className));
+
+	assert.strictEqual(article(module.getDom()).style["--image-max-height"], undefined);
+	module.config.articleImageMaxHeight = "30vh";
+	assert.strictEqual(article(module.getDom()).style["--image-max-height"], "30vh");
 });

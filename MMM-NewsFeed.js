@@ -41,6 +41,7 @@ Module.register("MMM-NewsFeed", {
         scrollLength: 500,
         logFeedWarnings: false,
         contentAsArticle: false,
+        articleImageMaxHeight: null, // CSS length, e.g. "30vh"; null keeps images at full width
         fullArticleTimeout: 60 * 1000 // 1 minute timeout for full article
     },
 
@@ -297,6 +298,9 @@ Module.register("MMM-NewsFeed", {
                         "article-content bright medium light" +
                         (this.slideFrom ? " from-" + this.slideFrom : "");
                     this.slideFrom = null;
+                    if (this.config.articleImageMaxHeight) {
+                        fullArticle.style.setProperty("--image-max-height", this.config.articleImageMaxHeight);
+                    }
                     fullArticle.style.width = "100%";
                     // very large height value to allow scrolling
                     fullArticle.style.height = "3000";

@@ -28,6 +28,9 @@ A feed with a `freshrss` block is read from FreshRSS through its Google Reader A
 In the full article view `ARTICLE_NEXT` / `ARTICLE_PREVIOUS` open the next / previous article
 in full; closing it leaves the teaser on the article read last.
 
+`articleImageMaxHeight` (module option, CSS length such as `"30vh"`) caps the height of images
+in the full article (`contentAsArticle: true`), so less scrolling is needed to reach the text.
+
 Entries come from the account in the block, so each person can have their own module
 instance (e.g. shown by face recognition classes) with their own account.
 
