@@ -3,6 +3,9 @@
     padding-bottom: 1em;
     text-align: justify;
     background-color: black;
+    /* A short article must still cover the whole screen, or the dashboard shows below it. */
+    box-sizing: border-box;
+    min-height: 100vh;
     /* Slides in from below the screen; closing slides it back down (inline transform
        set in resetDescrOrFullArticleAndTimer, which also accounts for scrolling). */
     transform: translateY(100vh);
