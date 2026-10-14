@@ -31,6 +31,9 @@ in full; closing it leaves the teaser on the article read last.
 `articleImageMaxHeight` (module option, CSS length such as `"30vh"`) caps the height of images
 in the full article (`contentAsArticle: true`), so less scrolling is needed to reach the text.
 
+`articleCutMarkers` (module option, list of HTML snippets) ends the full article before the
+last snippet found, e.g. `["<p>Sources:</p>"]` hides a source list appended to each entry.
+
 Entries come from the account in the block, so each person can have their own module
 instance (e.g. shown by face recognition classes) with their own account.
 

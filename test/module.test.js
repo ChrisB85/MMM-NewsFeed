@@ -108,3 +108,12 @@ test("articleImageMaxHeight caps images in the full article, unset leaves them a
 	module.config.articleImageMaxHeight = "30vh";
 	assert.strictEqual(article(module.getDom()).style["--image-max-height"], "30vh");
 });
+
+test("articleCutMarkers drop the trailing block from the last marker, no marker leaves the article whole", () => {
+	const { module } = loadModule();
+	assert.strictEqual(module.cutArticle("<p>a</p><p>Src: x</p>"), "<p>a</p><p>Src: x</p>", "no markers configured");
+	module.config.articleCutMarkers = ["<p>Srcs:</p>", "<p>Src: "];
+	assert.strictEqual(module.cutArticle("<p>Src: photo</p><p>a</p><p>Src: <a>x</a></p>"), "<p>Src: photo</p><p>a</p>", "only the last occurrence");
+	assert.strictEqual(module.cutArticle("<p>a</p><p>Srcs:</p><ul><li>x</li></ul>"), "<p>a</p>");
+	assert.strictEqual(module.cutArticle("<p>a</p>"), "<p>a</p>");
+});

@@ -42,6 +42,7 @@ Module.register("MMM-NewsFeed", {
         logFeedWarnings: false,
         contentAsArticle: false,
         articleImageMaxHeight: null, // CSS length, e.g. "30vh"; null keeps images at full width
+        articleCutMarkers: [], // HTML snippets; the full article ends before the last one found
         fullArticleTimeout: 60 * 1000 // 1 minute timeout for full article
     },
 
@@ -287,7 +288,7 @@ Module.register("MMM-NewsFeed", {
                     fullArticle.style.zIndex = 1;
                 } else {
                     var fullArticle = document.createElement("div");
-                    var rawContent = this.newsItems[this.activeItem].content;
+                    var rawContent = this.cutArticle(this.newsItems[this.activeItem].content);
                     console.log(this.getActiveItemURL());
                     // console.log(rawContent);
                     // var content = this.nl2br(rawContent);
@@ -446,6 +447,17 @@ Module.register("MMM-NewsFeed", {
         }
 
         this.newsItems = newsItems;
+    },
+
+    /* cutArticle(html)
+     * Drops a trailing block (e.g. a source list) from the full article: everything from
+     * the last occurrence of any articleCutMarkers snippet. Without a marker it is unchanged.
+     */
+    cutArticle: function (html) {
+        var at = Math.max.apply(null, [-1].concat(this.config.articleCutMarkers.map(function (marker) {
+            return marker ? html.lastIndexOf(marker) : -1;
+        })));
+        return at === -1 ? html : html.slice(0, at);
     },
 
     itemKey: function (item) {
