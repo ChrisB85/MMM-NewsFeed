@@ -1173,7 +1173,11 @@ Module.register("MMM-NewsFeed", {
             sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
             sheet.style.transition = "";
             sheet.style.transform = "translate(" + (step > 0 ? "-100vw" : "100vw") + ", " + (-scrolled) + "px)";
-            sheet.style.opacity = "0";
+            // Only the text fades: two half transparent sheets would let the dashboard through.
+            Array.prototype.forEach.call(sheet.children, function (child) {
+                child.style.transition = "opacity 0.6s ease";
+                child.style.opacity = "0";
+            });
         }
         this.slideFrom = step > 0 ? "right" : "left";
         this.scrollPosition = 0;

@@ -22,6 +22,22 @@
     transform: translateX(-100vw);
 }
 
+/* While switching the sheet stays opaque and only its content fades in. */
+.module.MMM-NewsFeed .article-content.from-right,
+.module.MMM-NewsFeed .article-content.from-left {
+    opacity: 1;
+}
+
+.module.MMM-NewsFeed .article-content.from-right > *,
+.module.MMM-NewsFeed .article-content.from-left > * {
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+.module.MMM-NewsFeed .article-content.show > * {
+    opacity: 1;
+}
+
 .module.MMM-NewsFeed .article-content.show {
     transform: translateY(0);
     opacity: 1;
