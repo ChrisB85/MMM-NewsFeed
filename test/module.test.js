@@ -6,12 +6,26 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
+// Bottom bar whose copy holds an article sheet; the last sheet is kept for assertions.
+let sheet;
+function bar () {
+	return {
+		cloneNode: () => ({
+			querySelectorAll: () => [],
+			querySelector: () => (sheet = { style: {}, getBoundingClientRect () {} }),
+			remove () {}
+		}),
+		after () {}
+	};
+}
+
 function loadModule () {
 	let definition;
 	const context = {
 		Module: { register: (name, def) => { definition = def; } },
 		Log: { info () {} },
-		window: { scrollTo () {} },
+		window: { scrollTo () {}, scrollY: 0 },
+		document: { getElementsByClassName: () => [bar()] },
 		setTimeout: () => 0,
 		clearTimeout () {},
 		clearInterval () {}
@@ -43,10 +57,14 @@ test("in the full article view the gestures open the next article in full and ma
 	assert.strictEqual(module.activeItem, 1);
 	assert.strictEqual(module.config.showFullArticle, true);
 	assert.deepStrictEqual(JSON.parse(JSON.stringify(module.sent.at(-1))), { notification: "MARK_READ", payload: { key, id: "id2" } });
+	assert.strictEqual(module.slideFrom, "right", "next article comes in from the right");
+	assert.match(sheet.style.transform, /^translate\(-100vw/, "old article leaves to the left");
 
 	module.notificationReceived("ARTICLE_PREVIOUS");
 	module.notificationReceived("ARTICLE_PREVIOUS");
 	assert.strictEqual(module.activeItem, 2, "wraps around to the last article");
+	assert.strictEqual(module.slideFrom, "left");
+	assert.match(sheet.style.transform, /^translate\(100vw/);
 	assert.strictEqual(module.config.showFullArticle, true);
 });
 

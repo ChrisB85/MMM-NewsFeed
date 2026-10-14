@@ -294,7 +294,9 @@ Module.register("MMM-NewsFeed", {
                     // content = content.replace(/\s\s+/g, " ");
                     fullArticle.innerHTML = rawContent;
                     fullArticle.className =
-                        "article-content bright medium light";
+                        "article-content bright medium light" +
+                        (this.slideFrom ? " from-" + this.slideFrom : "");
+                    this.slideFrom = null;
                     fullArticle.style.width = "100%";
                     // very large height value to allow scrolling
                     fullArticle.style.height = "3000";
@@ -1066,6 +1068,19 @@ Module.register("MMM-NewsFeed", {
             return;
         }
         this.activeItem = (((this.activeItem + step) % count) + count) % count;
+
+        // The old article slides out on a copy of the bar while the new one comes in
+        // from the other side, like the teaser carousel.
+        var sheet = this.cloneBottomBar().querySelector(".article-content, .full-article-iframe");
+        if (sheet) {
+            var scrolled = window.scrollY;
+            sheet.style.transition = "none";
+            sheet.style.transform = "translateY(" + (-scrolled) + "px)";
+            sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
+            sheet.style.transition = "";
+            sheet.style.transform = "translate(" + (step > 0 ? "-100vw" : "100vw") + ", " + (-scrolled) + "px)";
+        }
+        this.slideFrom = step > 0 ? "right" : "left";
         this.scrollPosition = 0;
         window.scrollTo(0, 0);
         this.startArticleTimeout();

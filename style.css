@@ -9,6 +9,15 @@
     transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Switching articles in the full view slides them sideways (switchFullArticle). */
+.module.MMM-NewsFeed .article-content.from-right {
+    transform: translateX(100vw);
+}
+
+.module.MMM-NewsFeed .article-content.from-left {
+    transform: translateX(-100vw);
+}
+
 .module.MMM-NewsFeed .article-content.show {
     transform: translateY(0);
 }
