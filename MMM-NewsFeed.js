@@ -422,7 +422,28 @@ Module.register("MMM-NewsFeed", {
             this.sendNotification("NEWS_FEED_UPDATE", { items: updatedItems });
         }
 
+        // Keep the shown article where it is across reloads: an unread-only feed drops it
+        // once it is read, and the next article would silently take its index.
+        var active = this.newsItems[this.activeItem];
+        if (active) {
+            var key = this.itemKey(active);
+            var index = newsItems.findIndex(function (item) {
+                return this.itemKey(item) === key;
+            }, this);
+            if (index === -1 && this.config.showFullArticle) {
+                index = Math.min(this.activeItem, newsItems.length);
+                newsItems.splice(index, 0, active);
+            }
+            if (index !== -1) {
+                this.activeItem = index;
+            }
+        }
+
         this.newsItems = newsItems;
+    },
+
+    itemKey: function (item) {
+        return item.freshrssId || item.url + "|" + item.title;
     },
 
     /* feedKey(feed)
@@ -962,6 +983,11 @@ Module.register("MMM-NewsFeed", {
                 Log.info(this.name + " - full article overwritten by a stale update, rendering it again");
                 this.updateDom(0);
             }
+        } else if (
+            (notification === "ARTICLE_NEXT" || notification === "ARTICLE_PREVIOUS") &&
+            this.config.showFullArticle
+        ) {
+            this.switchFullArticle(notification === "ARTICLE_NEXT" ? 1 : -1);
         } else if (notification === "ARTICLE_NEXT") {
             // Pause auto scroll immediately when gesture is detected
             this.pauseAutoScroll();
@@ -1028,6 +1054,24 @@ Module.register("MMM-NewsFeed", {
                 url: this.getActiveItemURL(),
             });
         }
+    },
+
+    /* switchFullArticle(step)
+     * Shows the next (1) or previous (-1) article in full without leaving the article
+     * view; closing it then leaves the teaser on the article read last.
+     */
+    switchFullArticle: function (step) {
+        var count = this.newsItems.length;
+        if (count === 0 || this.articleOpeningInProgress) {
+            return;
+        }
+        this.activeItem = (((this.activeItem + step) % count) + count) % count;
+        this.scrollPosition = 0;
+        window.scrollTo(0, 0);
+        this.startArticleTimeout();
+        this.markActiveRead();
+        Log.info(this.name + " - full article switched to #" + this.activeItem);
+        this.updateDom(0);
     },
 
     showFullArticle: function () {
