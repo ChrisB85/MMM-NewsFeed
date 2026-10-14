@@ -13,13 +13,19 @@
     transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease;
 }
 
+/* Other bottom bar modules (page indicator) would sit on the open article's lower edge,
+   and their copy in the closing animation on top of the real ones. */
+.region.bottom.bar.newsfeed-article-open .module:not(.MMM-NewsFeed) {
+    visibility: hidden;
+}
+
 /* Switching articles in the full view slides them sideways (switchFullArticle). */
 .module.MMM-NewsFeed .article-content.from-right {
-    transform: translateX(100vw);
+    transform: translateX(100%); /* own width, so the two sheets touch: 100vw left a gap of the body margins */
 }
 
 .module.MMM-NewsFeed .article-content.from-left {
-    transform: translateX(-100vw);
+    transform: translateX(-100%);
 }
 
 /* While switching the sheet stays opaque and only its content fades in. */

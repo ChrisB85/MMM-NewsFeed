@@ -16,7 +16,8 @@ function bar () {
 			remove () {}
 		}),
 		after () {},
-		style: {}
+		style: {},
+		classList: { add () {}, remove () {} }
 	};
 }
 
@@ -73,7 +74,7 @@ test("in the full article view the gestures open the next article in full and ma
 	assert.strictEqual(module.config.showFullArticle, true);
 	assert.deepStrictEqual(JSON.parse(JSON.stringify(module.sent.at(-1))), { notification: "MARK_READ", payload: { key, id: "id2" } });
 	assert.strictEqual(module.slideFrom, "right", "next article comes in from the right");
-	assert.match(sheet.style.transform, /^translate\(-100vw/, "old article leaves to the left");
+	assert.match(sheet.style.transform, /^translate\(-100%/, "old article leaves to the left");
 	assert.strictEqual(sheet.style.opacity, undefined, "the leaving sheet stays opaque");
 	assert.strictEqual(sheet.children[0].style.opacity, "0", "only its text fades");
 
@@ -81,7 +82,7 @@ test("in the full article view the gestures open the next article in full and ma
 	module.notificationReceived("ARTICLE_PREVIOUS");
 	assert.strictEqual(module.activeItem, 2, "wraps around to the last article");
 	assert.strictEqual(module.slideFrom, "left");
-	assert.match(sheet.style.transform, /^translate\(100vw/);
+	assert.match(sheet.style.transform, /^translate\(100%/);
 	assert.strictEqual(module.config.showFullArticle, true);
 });
 

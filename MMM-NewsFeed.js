@@ -791,6 +791,7 @@ Module.register("MMM-NewsFeed", {
         bottomBar.style.bottom = "0";
         bottomBar.style.top = "inherit";
         bottomBar.style.zIndex = "";
+        bottomBar.classList.remove("newsfeed-article-open");
         window.scrollTo(0, 0);
     },
 
@@ -1172,7 +1173,7 @@ Module.register("MMM-NewsFeed", {
             sheet.style.transform = "translateY(" + (-scrolled) + "px)";
             sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
             sheet.style.transition = "";
-            sheet.style.transform = "translate(" + (step > 0 ? "-100vw" : "100vw") + ", " + (-scrolled) + "px)";
+            sheet.style.transform = "translate(" + (step > 0 ? "-100%" : "100%") + ", " + (-scrolled) + "px)";
             // Only the text fades: two half transparent sheets would let the dashboard through.
             Array.prototype.forEach.call(sheet.children, function (child) {
                 child.style.transition = "opacity 0.6s ease";
@@ -1233,6 +1234,7 @@ Module.register("MMM-NewsFeed", {
                 // has slid over them; z-index keeps the copy under the real region.
                 self.cloneBottomBar();
                 bottomBar.style.zIndex = "1";
+                bottomBar.classList.add("newsfeed-article-open");
                 var bodyTop = document.body.getBoundingClientRect().top + window.scrollY;
                 bottomBar.style.bottom = "inherit";
                 bottomBar.style.top =
