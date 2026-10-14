@@ -6,6 +6,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
+// Callbacks the module schedules; a test runs them with flush().
+let timers = [];
+function flush () {
+	const due = timers;
+	timers = [];
+	due.forEach((fn) => fn());
+}
+
 // Bottom bar whose copy holds an article sheet; the last sheet is kept for assertions.
 let sheet;
 function bar () {
@@ -26,6 +34,7 @@ function element () {
 		children: [],
 		style: { setProperty (name, value) { this[name] = value; } },
 		classList: { add () {} },
+		getBoundingClientRect () {},
 		appendChild (child) { this.children.push(child); }
 	};
 }
@@ -37,7 +46,7 @@ function loadModule () {
 		Log: { info () {} },
 		window: { scrollTo () {}, scrollY: 0 },
 		document: { getElementsByClassName: () => [bar()], createElement: element },
-		setTimeout: () => 0,
+		setTimeout: (fn, delay) => { if (!delay) timers.push(fn); return 0; }, // only "next tick" ones, not article timeouts
 		clearTimeout () {},
 		clearInterval () {},
 		setInterval: () => 0
@@ -69,11 +78,15 @@ test("in the full article view the gestures open the next article in full and ma
 	module.generateFeed({ [key]: [item(1), item(2), item(3)] });
 	module.config.showFullArticle = true;
 
+	module.config.contentAsArticle = true;
 	module.notificationReceived("ARTICLE_NEXT");
 	assert.strictEqual(module.activeItem, 1);
+	assert.match(sheet.style.transform, /^translateY/, "the old article waits for the new one");
+	assert.strictEqual(module.slideFrom, "right", "next article comes in from the right");
+	module.getDom();
+	flush();
 	assert.strictEqual(module.config.showFullArticle, true);
 	assert.deepStrictEqual(JSON.parse(JSON.stringify(module.sent.at(-1))), { notification: "MARK_READ", payload: { key, id: "id2" } });
-	assert.strictEqual(module.slideFrom, "right", "next article comes in from the right");
 	assert.match(sheet.style.transform, /^translate\(-100%/, "old article leaves to the left");
 	assert.strictEqual(sheet.style.opacity, undefined, "the leaving sheet stays opaque");
 	assert.strictEqual(sheet.children[0].style.opacity, "0", "only its text fades");
@@ -82,6 +95,8 @@ test("in the full article view the gestures open the next article in full and ma
 	module.notificationReceived("ARTICLE_PREVIOUS");
 	assert.strictEqual(module.activeItem, 2, "wraps around to the last article");
 	assert.strictEqual(module.slideFrom, "left");
+	module.getDom();
+	flush();
 	assert.match(sheet.style.transform, /^translate\(100%/);
 	assert.strictEqual(module.config.showFullArticle, true);
 });

@@ -322,6 +322,10 @@ Module.register("MMM-NewsFeed", {
                 setTimeout(function() {
                     fullArticle.getBoundingClientRect(); // commit the start position, or the slide is skipped
                     fullArticle.classList.add("show");
+                    if (self.leavingSheet) {
+                        self.leavingSheet();
+                        self.leavingSheet = null;
+                    }
                     // Clear article opening flag and timeout
                     self.articleOpeningInProgress = false;
                     if (self.articleOpeningTimeout) {
@@ -1166,6 +1170,9 @@ Module.register("MMM-NewsFeed", {
 
         // The old article slides out on a copy of the bar while the new one comes in
         // from the other side, like the teaser carousel.
+        if (this.leavingSheet) {
+            this.leavingSheet(); // a second gesture before the article came in: send the first one off now
+        }
         var sheet = this.cloneBottomBar().querySelector(".article-content, .full-article-iframe");
         if (sheet) {
             var scrolled = window.scrollY;
@@ -1173,12 +1180,17 @@ Module.register("MMM-NewsFeed", {
             sheet.style.transform = "translateY(" + (-scrolled) + "px)";
             sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
             sheet.style.transition = "";
-            sheet.style.transform = "translate(" + (step > 0 ? "-100%" : "100%") + ", " + (-scrolled) + "px)";
-            // Only the text fades: two half transparent sheets would let the dashboard through.
-            Array.prototype.forEach.call(sheet.children, function (child) {
-                child.style.transition = "opacity 0.6s ease";
-                child.style.opacity = "0";
-            });
+            // Leaves together with the new article coming in (getDom), not before it:
+            // MagicMirror inserts that one a frame or more later, and in between the gap
+            // between the two sheets showed the dashboard.
+            this.leavingSheet = function () {
+                sheet.style.transform = "translate(" + (step > 0 ? "-100%" : "100%") + ", " + (-scrolled) + "px)";
+                // Only the text fades: two half transparent sheets would let the dashboard through.
+                Array.prototype.forEach.call(sheet.children, function (child) {
+                    child.style.transition = "opacity 0.6s ease";
+                    child.style.opacity = "0";
+                });
+            };
         }
         this.slideFrom = step > 0 ? "right" : "left";
         this.scrollPosition = 0;
