@@ -512,6 +512,8 @@ Module.register("MMM-NewsFeed", {
         this.newsItems = [];
         this.activeItem = 0;
         this.generateFeed(this.lastFeeds);
+        this.sendSocketNotification("LOG", "feeds of " + (this.activeFeeds() === this.config.feeds ? "nobody" : users.join(", ")) +
+            " (" + this.newsItems.length + " items)");
         this.updateDom(0);
     },
 

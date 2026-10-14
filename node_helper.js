@@ -23,6 +23,10 @@ module.exports = NodeHelper.create({
 			this.createFetcher(payload.key || payload.feed.url, payload.feed, payload.config);
 			return;
 		}
+		if (notification === "LOG") {
+			console.log("MMM-NewsFeed: " + payload); // the browser console does not reach the journal
+			return;
+		}
 		if (notification === "MARK_READ") {
 			var fetcher = this.fetchers[payload.key];
 			if (fetcher && fetcher.markRead) {
