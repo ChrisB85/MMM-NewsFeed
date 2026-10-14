@@ -489,9 +489,16 @@ Module.register("MMM-NewsFeed", {
     },
 
     /* activeFeeds()
-     * Feeds of the first logged in user that has userFeeds, otherwise the default feeds.
+     * Feeds on screen now.
      */
     activeFeeds: function () {
+        return this.shownFeeds || this.config.feeds;
+    },
+
+    /* wantedFeeds()
+     * Feeds of the first logged in user that has userFeeds, otherwise the default feeds.
+     */
+    wantedFeeds: function () {
         var user = this.loggedInUsers.find(function (name) {
             return this.config.userFeeds[name];
         }, this);
@@ -499,23 +506,31 @@ Module.register("MMM-NewsFeed", {
     },
 
     /* setLoggedInUsers(users)
-     * Switches to the feeds of the users now in front of the mirror.
+     * Switches to the feeds of the users now in front of the mirror, fading the list
+     * out and in. An open article is not taken away: the switch waits until it closes.
      */
     setLoggedInUsers: function (users) {
-        var before = this.activeFeeds();
         this.loggedInUsers = users;
-        if (this.activeFeeds() === before) {
-            return;
+        if (!this.config.showFullArticle && this.switchFeeds()) {
+            this.updateDom(this.config.animationSpeed);
         }
-        if (this.config.showFullArticle) {
-            this.resetDescrOrFullArticleAndTimer();
+    },
+
+    /* switchFeeds()
+     * Puts the wanted feeds on screen (data only). Returns whether anything changed.
+     */
+    switchFeeds: function () {
+        var wanted = this.wantedFeeds();
+        if (wanted === this.activeFeeds()) {
+            return false;
         }
+        this.shownFeeds = wanted;
         this.newsItems = [];
         this.activeItem = 0;
         this.generateFeed(this.lastFeeds);
-        this.sendSocketNotification("LOG", "feeds of " + (this.activeFeeds() === this.config.feeds ? "nobody" : users.join(", ")) +
+        this.sendSocketNotification("LOG", "feeds of " + (wanted === this.config.feeds ? "nobody" : this.loggedInUsers.join(", ")) +
             " (" + this.newsItems.length + " items)");
-        this.updateDom(0);
+        return true;
     },
 
     /* markActiveRead()
@@ -732,6 +747,7 @@ Module.register("MMM-NewsFeed", {
                 sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
                 sheet.style.transition = "";
                 sheet.style.transform = "translateY(" + window.innerHeight + "px)";
+                sheet.style.opacity = "0";
             }
         }
 
@@ -740,6 +756,8 @@ Module.register("MMM-NewsFeed", {
         this.scrollPosition = 0;
         this.resetBottomBar();
         if (closingArticle) {
+            // A login or logout that came while reading: the closing article reveals the new list.
+            this.switchFeeds();
             // Before scheduleUpdateInterval: its animated update then finds the teaser
             // already in place and skips (see getHeader), instead of fading it out and in.
             this.updateDom(0);
@@ -1154,6 +1172,7 @@ Module.register("MMM-NewsFeed", {
             sheet.getBoundingClientRect(); // commit the jump before re-enabling the transition
             sheet.style.transition = "";
             sheet.style.transform = "translate(" + (step > 0 ? "-100vw" : "100vw") + ", " + (-scrolled) + "px)";
+            sheet.style.opacity = "0";
         }
         this.slideFrom = step > 0 ? "right" : "left";
         this.scrollPosition = 0;

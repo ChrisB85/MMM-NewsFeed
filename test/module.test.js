@@ -15,7 +15,8 @@ function bar () {
 			querySelector: () => (sheet = { style: {}, getBoundingClientRect () {} }),
 			remove () {}
 		}),
-		after () {}
+		after () {},
+		style: {}
 	};
 }
 
@@ -55,7 +56,7 @@ function loadModule () {
 		sendNotification () {},
 		translate: (key) => key,
 		hide () {},
-		updateDom () { this.renders++; }
+		updateDom (speed) { this.renders++; this.lastSpeed = speed; }
 	});
 	return { module, key: module.feedKey(feed) };
 }
@@ -162,4 +163,29 @@ test("every feed, default and per user, is registered with the node helper", () 
 	module.config.userFeeds = { Me: [{ url: "http://rss", freshrss: { user: "me", category: "C", unreadOnly: true } }] };
 	module.registerFeeds();
 	assert.strictEqual(module.sent.filter((n) => n.notification === "ADD_FEED").length, 2);
+});
+
+test("a login while an article is open waits until it closes, then the article fades out over the new list", () => {
+	const { module, key } = loadModule();
+	const mine = { title: "Moje", url: "http://rss", freshrss: { user: "me", category: "Podsumowania", feed: "Wiadomości", unreadOnly: true } };
+	module.config.userFeeds = { Me: [mine] };
+	module.socketNotificationReceived("NEWS_ITEMS", { [key]: [item(1), item(2)], [module.feedKey(mine)]: [] });
+
+	module.config.showFullArticle = true;
+	module.notificationReceived("USERS_LOGIN", ["Me"]);
+	assert.strictEqual(module.newsItems.length, 2, "the open article and its list stay");
+	assert.strictEqual(module.config.showFullArticle, true);
+
+	module.notificationReceived("ARTICLE_LESS_DETAILS");
+	assert.strictEqual(module.newsItems.length, 0, "switched once closed");
+	assert.strictEqual(sheet.style.opacity, "0", "the closing article fades out");
+});
+
+test("a login with no article open fades the list out and in", () => {
+	const { module, key } = loadModule();
+	module.config.userFeeds = { Me: [{ url: "http://rss", freshrss: { user: "me", category: "C", unreadOnly: true } }] };
+	module.socketNotificationReceived("NEWS_ITEMS", { [key]: [item(1)] });
+	module.notificationReceived("USERS_LOGIN", ["Me"]);
+	assert.strictEqual(module.lastSpeed, module.config.animationSpeed);
+	assert.ok(module.lastSpeed > 0);
 });
