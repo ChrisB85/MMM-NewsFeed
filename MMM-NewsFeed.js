@@ -883,8 +883,9 @@ Module.register("MMM-NewsFeed", {
         var self = this;
         var before = this.activeItem;
         
-        // Prevent multiple animations at once
-        if (this.animationDirection) {
+        // Prevent multiple animations at once; with no articles there is nothing to scroll
+        // to, and rebuilding the carousel would only blink the "no news" text
+        if (this.animationDirection || this.newsItems.length === 0) {
             return;
         }
         

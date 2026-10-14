@@ -189,3 +189,13 @@ test("a login with no article open fades the list out and in", () => {
 	assert.strictEqual(module.lastSpeed, module.config.animationSpeed);
 	assert.ok(module.lastSpeed > 0);
 });
+
+test("scrolling an empty list leaves the no news text alone", () => {
+	const { module, key } = loadModule();
+	module.socketNotificationReceived("NEWS_ITEMS", { [key]: [] });
+	const renders = module.renders;
+	module.notificationReceived("ARTICLE_NEXT");
+	module.notificationReceived("ARTICLE_PREVIOUS");
+	assert.strictEqual(module.renders, renders);
+	assert.ok(!module.animationDirection, "no carousel started");
+});
