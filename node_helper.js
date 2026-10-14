@@ -8,6 +8,7 @@
 var NodeHelper = require("node_helper");
 var validUrl = require("valid-url");
 var Fetcher = require("./fetcher.js");
+var FreshRSSFetcher = require("./freshrss.js").FreshRSSFetcher;
 
 module.exports = NodeHelper.create({
 	// Subclass start method.
@@ -19,19 +20,28 @@ module.exports = NodeHelper.create({
 	// Subclass socketNotificationReceived received.
 	socketNotificationReceived: function(notification, payload) {
 		if (notification === "ADD_FEED") {
-			this.createFetcher(payload.feed, payload.config);
+			this.createFetcher(payload.key || payload.feed.url, payload.feed, payload.config);
 			return;
+		}
+		if (notification === "MARK_READ") {
+			var fetcher = this.fetchers[payload.key];
+			if (fetcher && fetcher.markRead) {
+				fetcher.markRead(payload.id).catch(function(error) {
+					console.error("MMM-NewsFeed: marking as read failed: " + error);
+				});
+			}
 		}
 	},
 
-	/* createFetcher(feed, config)
+	/* createFetcher(key, feed, config)
 	 * Creates a fetcher for a new feed if it doesn't exist yet.
 	 * Otherwise it reuses the existing one.
 	 *
+	 * attribute key string - Feed key: the url, plus the stream for FreshRSS feeds.
 	 * attribute feed object - A feed object.
 	 * attribute config object - A configuration object containing reload interval in milliseconds.
 	 */
-	createFetcher: function(feed, config) {
+	createFetcher: function(key, feed, config) {
 		var self = this;
 
 		var url = feed.url || "";
@@ -44,9 +54,11 @@ module.exports = NodeHelper.create({
 		}
 
 		var fetcher;
-		if (typeof self.fetchers[url] === "undefined") {
-			console.log("Create new news fetcher for url: " + url + " - Interval: " + reloadInterval);
-			fetcher = new Fetcher(url, reloadInterval, encoding, config.logFeedWarnings);
+		if (typeof self.fetchers[key] === "undefined") {
+			console.log("Create new news fetcher for: " + key + " - Interval: " + reloadInterval);
+			fetcher = feed.freshrss
+				? new FreshRSSFetcher(key, feed, reloadInterval)
+				: new Fetcher(url, reloadInterval, encoding, config.logFeedWarnings);
 
 			fetcher.onReceive(function(fetcher) {
 				self.broadcastFeeds();
@@ -59,10 +71,10 @@ module.exports = NodeHelper.create({
 				});
 			});
 
-			self.fetchers[url] = fetcher;
+			self.fetchers[key] = fetcher;
 		} else {
-			console.log("Use existing news fetcher for url: " + url);
-			fetcher = self.fetchers[url];
+			console.log("Use existing news fetcher for: " + key);
+			fetcher = self.fetchers[key];
 			fetcher.setReloadInterval(reloadInterval);
 			fetcher.broadcastItems();
 		}

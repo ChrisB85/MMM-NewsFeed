@@ -349,6 +349,7 @@ Module.register("MMM-NewsFeed", {
         for (var f in this.config.feeds) {
             var feed = this.config.feeds[f];
             this.sendSocketNotification("ADD_FEED", {
+                key: this.feedKey(feed),
                 feed: feed,
                 config: this.config,
             });
@@ -368,6 +369,7 @@ Module.register("MMM-NewsFeed", {
                 for (var i in feedItems) {
                     var item = feedItems[i];
                     item.sourceTitle = this.titleForFeed(feed);
+                    item.feedKey = feed;
                     if (
                         !(
                             this.config.ignoreOldItems &&
@@ -423,6 +425,33 @@ Module.register("MMM-NewsFeed", {
         this.newsItems = newsItems;
     },
 
+    /* feedKey(feed)
+     * Key the node helper files a feed's items under: its url, plus the stream for
+     * FreshRSS feeds (several of them share one url). Never includes the credentials.
+     */
+    feedKey: function (feed) {
+        return feed.freshrss
+            ? feed.url + "#" + (feed.freshrss.category || "") + "/" + (feed.freshrss.feed || "")
+            : feed.url;
+    },
+
+    /* markActiveRead()
+     * Marks the open article as read in FreshRSS, if its feed has freshrss.markReadOnOpen.
+     */
+    markActiveRead: function () {
+        var item = this.newsItems[this.activeItem];
+        if (!item || !item.freshrssId || item.read) {
+            return;
+        }
+        var feed = this.config.feeds.find(function (f) {
+            return this.feedKey(f) === item.feedKey;
+        }, this);
+        if (feed && feed.freshrss.markReadOnOpen) {
+            item.read = true;
+            this.sendSocketNotification("MARK_READ", { key: item.feedKey, id: item.freshrssId });
+        }
+    },
+
     /* subscribedToFeed(feedUrl)
      * Check if this module is configured to show this feed.
      *
@@ -433,7 +462,7 @@ Module.register("MMM-NewsFeed", {
     subscribedToFeed: function (feedUrl) {
         for (var f in this.config.feeds) {
             var feed = this.config.feeds[f];
-            if (feed.url === feedUrl) {
+            if (this.feedKey(feed) === feedUrl) {
                 return true;
             }
         }
@@ -450,7 +479,7 @@ Module.register("MMM-NewsFeed", {
     titleForFeed: function (feedUrl) {
         for (var f in this.config.feeds) {
             var feed = this.config.feeds[f];
-            if (feed.url === feedUrl) {
+            if (this.feedKey(feed) === feedUrl) {
                 return feed.title || "";
             }
         }
@@ -1061,6 +1090,7 @@ Module.register("MMM-NewsFeed", {
             // Start timeout for full article
             if (self.config.showFullArticle) {
                 self.startArticleTimeout();
+                self.markActiveRead();
             }
             
             Log.info(
