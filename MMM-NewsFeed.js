@@ -339,12 +339,13 @@ Module.register("MMM-NewsFeed", {
         } else {
             if (this.config.hideLoading) {
                 this.hide();
-            } else if (this.loaded && this.config.showNoNewsMessage) {
-                wrapper.innerHTML = this.translate("NO_NEWS");
-                wrapper.className = "small dimmed";
             } else {
-                wrapper.innerHTML = this.translate("LOADING");
-                wrapper.className = "small dimmed";
+                // Keeps newsfeed-container, so the bar is as tall as with teasers and
+                // custom.css offsets tuned for them do not push the text off screen.
+                wrapper.innerHTML = this.translate(
+                    this.loaded && this.config.showNoNewsMessage ? "NO_NEWS" : "LOADING"
+                );
+                wrapper.className = "newsfeed-container small dimmed";
             }
         }
 

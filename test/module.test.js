@@ -130,6 +130,7 @@ test("an empty feed says so with showNoNewsMessage, otherwise it keeps the loadi
 	assert.strictEqual(module.getDom().innerHTML, "LOADING");
 	module.config.showNoNewsMessage = true;
 	assert.strictEqual(module.getDom().innerHTML, "NO_NEWS");
+	assert.match(module.getDom().className, /newsfeed-container/, "same bar height as with teasers");
 });
 
 test("a logged in user with userFeeds gets their feeds, everyone else the default ones", () => {
