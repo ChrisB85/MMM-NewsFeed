@@ -50,6 +50,8 @@ function loadModule () {
 		renders: 0,
 		sendSocketNotification (notification, payload) { this.sent.push({ notification, payload }); },
 		sendNotification () {},
+		translate: (key) => key,
+		hide () {},
 		updateDom () { this.renders++; }
 	});
 	return { module, key: module.feedKey(feed) };
@@ -116,4 +118,13 @@ test("articleCutMarkers drop the trailing block from the last marker, no marker 
 	assert.strictEqual(module.cutArticle("<p>Src: photo</p><p>a</p><p>Src: <a>x</a></p>"), "<p>Src: photo</p><p>a</p>", "only the last occurrence");
 	assert.strictEqual(module.cutArticle("<p>a</p><p>Srcs:</p><ul><li>x</li></ul>"), "<p>a</p>");
 	assert.strictEqual(module.cutArticle("<p>a</p>"), "<p>a</p>");
+});
+
+test("an empty feed says so with showNoNewsMessage, otherwise it keeps the loading text", () => {
+	const { module, key } = loadModule();
+	module.generateFeed({ [key]: [] });
+	module.loaded = true;
+	assert.strictEqual(module.getDom().innerHTML, "LOADING");
+	module.config.showNoNewsMessage = true;
+	assert.strictEqual(module.getDom().innerHTML, "NO_NEWS");
 });

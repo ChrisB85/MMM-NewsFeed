@@ -27,6 +27,7 @@ Module.register("MMM-NewsFeed", {
         truncDescription: true,
         lengthDescription: 400,
         hideLoading: false,
+        showNoNewsMessage: false, // once loaded, an empty list says so instead of "loading"
         reloadInterval: 5 * 60 * 1000, // every 5 minutes
         updateInterval: 10 * 1000,
         animationSpeed: 2.5 * 1000,
@@ -334,6 +335,9 @@ Module.register("MMM-NewsFeed", {
         } else {
             if (this.config.hideLoading) {
                 this.hide();
+            } else if (this.loaded && this.config.showNoNewsMessage) {
+                wrapper.innerHTML = this.translate("NO_NEWS");
+                wrapper.className = "small dimmed";
             } else {
                 wrapper.innerHTML = this.translate("LOADING");
                 wrapper.className = "small dimmed";

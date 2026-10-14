@@ -1,3 +1,4 @@
 {
-  "configuration_changed": "Opcje konfiguracji modułu newsfeed zostały zmienione.\nSprawdź dokumentację."
+  "configuration_changed": "Opcje konfiguracji modułu newsfeed zostały zmienione.\nSprawdź dokumentację.",
+  "NO_NEWS": "Brak nowych wiadomości"
 }

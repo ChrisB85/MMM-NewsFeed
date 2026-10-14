@@ -34,6 +34,9 @@ in the full article (`contentAsArticle: true`), so less scrolling is needed to r
 `articleCutMarkers` (module option, list of HTML snippets) ends the full article before the
 last snippet found, e.g. `["<p>Sources:</p>"]` hides a source list appended to each entry.
 
+An unread-only feed can run empty. `showNoNewsMessage: true` then shows "No new articles"
+instead of the loading text; `hideLoading: true` hides the module until something arrives.
+
 Entries come from the account in the block, so each person can have their own module
 instance (e.g. shown by face recognition classes) with their own account.
 
